@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The 1942 Pour Meter</title>
+</head>
+<body>
+<title>The 1942 Pour Meter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -131,11 +134,13 @@
   }
   .readout .pct small{font-size:30px;-webkit-text-fill-color:var(--gold);color:var(--gold)}
   .readout .status{font-style:italic;color:var(--ink-dim);font-size:14.5px;margin-top:8px;min-height:22px}
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--edge-soft);margin-top:16px}
-  .stat{padding:14px 8px;text-align:center;border-right:1px solid var(--edge-soft)}
-  .stat:last-child{border-right:none}
-  .stat b{display:block;font-family:var(--mono);font-size:17px;color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
-  .stat span{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+  .substats{
+    display:flex;gap:18px;justify-content:center;flex-wrap:wrap;
+    border-top:1px solid var(--edge-soft);margin-top:16px;padding:13px 10px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-faint);
+    text-transform:uppercase;font-variant-numeric:tabular-nums;
+  }
+  .substats b{color:var(--gold-bright);font-weight:500}
 
   .cellar{padding:16px 22px 22px}
   .cellar h3{font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
@@ -160,7 +165,6 @@
   @keyframes liveShift{to{background-position:-200% 0}}
   .tl-now{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--gold-bright);border-radius:2px;box-shadow:0 0 14px var(--gold-bright);animation:nowPulse 2s ease-in-out infinite}
   @keyframes nowPulse{50%{box-shadow:0 0 26px var(--gold-bright)}}
-  .tl-scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink-faint);margin-top:8px;padding:0 4px}
 
   .nowline{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--edge-soft);flex-wrap:wrap}
   .nowline .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
@@ -191,7 +195,17 @@
     width:23px;height:23px;flex:none;border:1.5px solid var(--gold);border-radius:50%;
     display:inline-flex;align-items:center;justify-content:center;color:transparent;font-size:12px;
     background:rgba(0,0,0,.3);transition:all .22s cubic-bezier(.2,1.4,.4,1);
+    position:relative;touch-action:none;
   }
+  .tick::after{
+    content:"";position:absolute;inset:-6px;border-radius:50%;opacity:0;
+    background:conic-gradient(var(--gold-bright) calc(var(--p,0)*1turn),transparent 0);
+    -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3.5px),#000 calc(100% - 2.5px));
+    mask:radial-gradient(farthest-side,transparent calc(100% - 3.5px),#000 calc(100% - 2.5px));
+    transition:opacity .15s;
+  }
+  .task.holding .tick::after{opacity:1}
+  .task.holding .tick{border-color:var(--gold-bright);box-shadow:0 0 18px rgba(240,200,120,.5)}
   .tick:hover{border-color:var(--gold-bright);transform:scale(1.15);box-shadow:0 0 16px rgba(240,200,120,.4)}
   .task.done .tick{background:linear-gradient(135deg,var(--gold-bright),var(--amber));border-color:transparent;color:var(--espresso);transform:scale(1.05)}
   .task .title{flex:1;font-size:15.5px;font-weight:500}
@@ -200,7 +214,6 @@
   .badge{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;padding:4px 9px;text-transform:uppercase;flex:none;border-radius:100px}
   .badge.rit{color:var(--gold-bright);border:1px solid rgba(212,160,68,.5)}
   .badge.spill{color:var(--danger);border:1px solid rgba(224,122,74,.5)}
-  .badge.share{color:var(--ink-faint)}
   .task .del{color:var(--ink-faint);font-size:14px;padding:2px 8px;opacity:0;transition:opacity .15s;border-radius:8px}
   .task:hover .del{opacity:1}
   .task .del:hover{color:var(--danger)}
@@ -217,8 +230,13 @@
     background:rgba(0,0,0,.35);border:1px solid var(--edge);border-radius:14px;padding:12px 12px;
     font-family:var(--mono);font-size:12px;color:var(--ink-dim);
   }
-  .addbar label.rit{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.06em;cursor:pointer}
-  .addbar label.rit input{accent-color:var(--gold)}
+  .ritbtn{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-dim);background:transparent;border:1px solid var(--edge-soft);border-radius:999px;
+    padding:9px 14px;cursor:pointer;transition:color .2s,border-color .2s,box-shadow .2s;
+  }
+  .ritbtn:hover{border-color:var(--gold);color:var(--ink)}
+  .ritbtn[aria-pressed="true"]{color:var(--gold-bright);border-color:var(--gold-bright);box-shadow:0 0 14px rgba(240,200,120,.25)}
   .btn{
     font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
     background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:var(--espresso);padding:12px 22px;border-radius:100px;
@@ -272,8 +290,7 @@
     <div class="date" id="dateLbl"></div>
   </div>
   <div class="top-spacer"></div>
-  <span class="chip" title="Consecutive days at or above the 80% goal">STREAK <b id="streakLbl">0</b></span>
-  <span class="chip">BEST <b id="bestLbl">0</b></span>
+  <span class="chip" title="Consecutive days at or above the 80% goal, and your best run">STREAK <b id="streakLbl">0</b> · BEST <b id="bestLbl">0</b></span>
   <button class="chip" id="muteBtn" aria-label="Toggle sound">SOUND <b id="muteState">ON</b></button>
 </div></header>
 
@@ -293,10 +310,10 @@
       <div class="pct"><span id="pctLbl">0</span><small>%</small></div>
       <div class="status" id="statusLbl">The bottle stands empty.</div>
     </div>
-    <div class="stats">
-      <div class="stat"><b id="stDone">0/0</b><span>Poured</span></div>
-      <div class="stat"><b id="stSpill">0</b><span>Spilled</span></div>
-      <div class="stat"><b id="stLeft">—</b><span>Next deadline</span></div>
+    <div class="substats">
+      <span>Poured <b id="stDone">0/0</b></span>
+      <span>Spilled <b id="stSpill">0</b></span>
+      <span>Next deadline <b id="stLeft">—</b></span>
     </div>
     <div class="cellar">
       <h3>The Cellar — last 7 nights</h3>
@@ -307,12 +324,11 @@
   <section class="panel rise d2" aria-label="Today">
     <div class="panel-head">
       <h2>Today’s Service</h2>
-      <span class="sub" id="blockCountLbl"></span>
+      <button class="chip" id="blockToggle">+ Time block</button>
     </div>
 
     <div class="timeline">
       <div class="tl-track" id="tlTrack"></div>
-      <div class="tl-scale"><span>6:00</span><span>10:00</span><span>14:00</span><span>18:00</span><span>22:00</span><span>24:00</span></div>
     </div>
 
     <div class="nowline" id="nowline">
@@ -326,7 +342,7 @@
     <div class="addbar" id="taskAdd">
       <input type="text" id="tTitle" placeholder="What must be finished, darling?" maxlength="120" aria-label="Task title">
       <select id="tBlock" aria-label="Time block"></select>
-      <label class="rit"><input type="checkbox" id="tRitual"> DAILY RITUAL</label>
+      <button class="ritbtn" type="button" id="tRitual" aria-pressed="false">Daily ritual</button>
       <button class="btn magnet" id="tAddBtn">Pour it in</button>
     </div>
 
@@ -335,10 +351,6 @@
       <input type="time" id="bStart" value="09:00" aria-label="Start time">
       <input type="time" id="bEnd" value="11:00" aria-label="End time">
       <button class="btn magnet" id="bAddBtn">Add block</button>
-    </div>
-    <div class="addbar" style="border-top:none;padding-top:0;background:transparent">
-      <button class="btn ghost magnet" id="blockToggle">+ Time block</button>
-      <button class="btn ghost magnet" id="seedBtn" style="display:none">Pour a sample day</button>
     </div>
   </section>
 
@@ -906,7 +918,7 @@ function initGL(){
 let yaw=0.35, yawVel=0, pitch=0, pitchT=0;
 let tiltX=0,tiltZ=0,tiltVX=0,tiltVZ=0, waveAmp=0;
 let displayPct=0, targetPct=0, demoDip=0;
-let pouring=false, corkY=0, corkVY=0, corkOpen=false;
+let pouring=false, corkY=0, corkVY=0, corkOpen=false, holdPour=false;
 let lastGlug=0, lastAmb=0, lastInteract=0;
 let dragging=false, dragMoved=0, lastPX=0,lastPY=0, downT=0;
 
@@ -949,7 +961,7 @@ function stepSim(dt,t){
   tiltX=clamp(tiltX,-.4,.4); tiltZ=clamp(tiltZ,-.4,.4);
 
   waveAmp*=.965;
-  if(pouring) waveAmp=Math.max(waveAmp,.06);
+  if(pouring||holdPour) waveAmp=Math.max(waveAmp,.06);
   if(draining){ waveAmp=Math.max(waveAmp,.07);
     if(t-lastGlug>260 && displayPct>1){ lastGlug=t;
       bubbles.push({x:(Math.random()-.5)*.4,y:0.15,z:(Math.random()-.5)*.4,vy:1.4+Math.random()*.6,s:26+Math.random()*14});
@@ -967,11 +979,14 @@ function stepSim(dt,t){
   }
   while(bubbles.length>MAXB) bubbles.shift();
 
-  if(corkOpen){
-    corkVY+=-14*dt; corkY+=corkVY*dt;
-    if(corkY<=0){ corkY=0; corkVY=0; if(!pouring) corkOpen=false; }
+  if(pouring||holdPour){
+    if(!corkOpen){ corkOpen=true; corkVY=4.2; }
+    corkVY+=((1.05-corkY)*40 - corkVY*7)*dt;
+    corkY+=corkVY*dt;
+  } else if(corkOpen){
+    corkVY-=14*dt; corkY+=corkVY*dt;
+    if(corkY<=0){ corkY=0; corkVY=0; corkOpen=false; }
   }
-  if(pouring&&!corkOpen){ corkOpen=true; corkVY=4.2; }
 }
 
 function drawGL(t){
@@ -1035,9 +1050,9 @@ function stepOverlay(dt,t){
     c.x+=c.vx; c.y+=c.vy; c.vy+=.13; c.rot+=c.vr; c.life-=.011;
     if(c.life<=0) confetti.splice(i,1);
   }
-  if(pouring){
-    if(Math.random()<.55) drops.push({x:(Math.random()-.5)*.14,y:4.5,z:0,vx:(Math.random()-.5)*.2,vy:-2.6-Math.random()});
-    if(Math.random()<.4) drops.push({x:(Math.random()-.5)*.2,y:levelY()+0.03,z:0,vx:(Math.random()-.5)*1.1,vy:1.0+Math.random()*1.2});
+  if(pouring||holdPour){
+    if(Math.random()<.8) drops.push({x:(Math.random()-.5)*.14,y:4.5,z:0,vx:(Math.random()-.5)*.2,vy:-2.6-Math.random()});
+    if(Math.random()<.6) drops.push({x:(Math.random()-.5)*.2,y:levelY()+0.03,z:0,vx:(Math.random()-.5)*1.1,vy:1.0+Math.random()*1.2});
   }
 }
 function drawOverlay(t){
@@ -1045,24 +1060,24 @@ function drawOverlay(t){
   fctx.clearRect(0,0,cssW,cssH);
   if(!GL_OK||!P) return;
   const M=modelMatrix(0);
-  if(pouring){
+  if(pouring||holdPour){
     const a=project(M,[0,4.55,0]), b=project(M,[0,levelY(),0]);
     const wig=Math.sin(t/70)*2;
     const g=fctx.createLinearGradient(a[0],a[1],b[0],b[1]);
-    g.addColorStop(0,'rgba(222,160,70,.95)'); g.addColorStop(1,'rgba(176,106,30,.92)');
+    g.addColorStop(0,'rgba(232,172,80,.97)'); g.addColorStop(1,'rgba(186,116,34,.94)');
     fctx.strokeStyle=g; fctx.lineCap='round';
-    fctx.shadowColor='rgba(212,160,68,.6)'; fctx.shadowBlur=8;
+    fctx.shadowColor='rgba(222,168,72,.75)'; fctx.shadowBlur=14;
     fctx.beginPath(); fctx.moveTo(a[0],a[1]);
     fctx.quadraticCurveTo((a[0]+b[0])/2+wig,(a[1]+b[1])/2, b[0],b[1]);
-    fctx.lineWidth=3.6+Math.sin(t/90)*.7; fctx.stroke(); fctx.shadowBlur=0;
-    fctx.strokeStyle='rgba(255,240,200,.9)';
+    fctx.lineWidth=5.2+Math.sin(t/90)*1.1; fctx.stroke(); fctx.shadowBlur=0;
+    fctx.strokeStyle='rgba(255,244,210,.95)';
     fctx.beginPath(); fctx.moveTo(a[0],a[1]);
     fctx.quadraticCurveTo((a[0]+b[0])/2+wig,(a[1]+b[1])/2, b[0],b[1]);
-    fctx.lineWidth=1.2; fctx.stroke();
+    fctx.lineWidth=1.8; fctx.stroke();
     const ph=(t/260)%1;
-    fctx.strokeStyle='rgba(255,240,200,'+(0.5*(1-ph))+')';
-    fctx.lineWidth=1;
-    fctx.beginPath(); fctx.ellipse(b[0],b[1],6+ph*14,2+ph*4,0,0,7); fctx.stroke();
+    fctx.strokeStyle='rgba(255,240,200,'+(0.6*(1-ph))+')';
+    fctx.lineWidth=1.2;
+    fctx.beginPath(); fctx.ellipse(b[0],b[1],6+ph*16,2+ph*5,0,0,7); fctx.stroke();
   }
   fctx.fillStyle='rgba(240,200,120,.95)';
   for(const d of drops){ const p=project(M,[d.x,d.y,d.z]);
@@ -1142,7 +1157,7 @@ document.addEventListener('visibilitychange',()=>{ running=!document.hidden; if(
 function loop(){
   if(!running) return;
   const t=performance.now(); const dt=clamp((t-lastT)/1000,.001,.05); lastT=t;
-  stepSim(dt,t); stepOverlay(dt,t);
+  stepSim(dt,t); stepOverlay(dt,t); stepHold(t);
   if(BG_OK) drawBG(t);
   else if(!reduceMotion) drawCine(t,dt*60);
   if(GL_OK){ drawGL(t); drawOverlay(t); } else drawFlat();
@@ -1186,7 +1201,7 @@ function addTask(title,blockId,recurring){
   S.tasks.push({id:uid(),title,blockId:blockId||null,recurring:!!recurring,done:false,spilled:false,doneAt:null});
   save(); renderAll();
 }
-function completeTask(id,rowEl){
+function completeTask(id,rowEl,fromHold){
   const t=S.tasks.find(x=>x.id===id); if(!t) return;
   if(t.done){ t.done=false; t.doneAt=null; save(); renderAll(); return; }
   t.done=true; t.doneAt=Date.now();
@@ -1194,7 +1209,9 @@ function completeTask(id,rowEl){
   if(rowEl) rowEl.classList.add('pop');
   if(t.spilled){ toast(pick(LINES.late),true); }
   else{
-    sfxCork(); setTimeout(sfxPour,120); setTimeout(sfxClink,560); burst(false);
+    if(fromHold){ setTimeout(sfxClink,320); }
+    else{ sfxCork(); setTimeout(sfxPour,120); setTimeout(sfxClink,560); }
+    burst(false);
     toast(pick(LINES.pour));
     if(pct()>=100){ setTimeout(()=>{ sfxFanfare(); burst(true); toast(pick(LINES.full),false,'The House'); },700); }
   }
@@ -1313,24 +1330,23 @@ function taskRow(t){
   const li=document.createElement('li');
   li.className='task'+(t.done?' done':'')+(t.spilled?' spilled':'');
   li.innerHTML=
-    '<button class="tick" data-act="tick" data-id="'+t.id+'" aria-label="Complete task">✓</button>'+
+    '<button class="tick" data-act="tick" data-id="'+t.id+'" aria-label="Hold to pour this task in" title="'+(t.done||t.spilled?'':'Hold to pour')+'">✓</button>'+
     '<span class="title">'+esc(t.title)+'</span>'+
     (t.recurring?'<span class="badge rit">Ritual</span>':'')+
-    (t.spilled?'<span class="badge spill">Spilled</span>':'<span class="badge share">'+(share()?share().toFixed(0)+'%':'')+'</span>')+
+    (t.spilled?'<span class="badge spill">Spilled</span>':'')+
     '<button class="del" data-act="del" data-id="'+t.id+'" aria-label="Remove task">✕</button>';
   return li;
 }
 function renderDay(){
   const body=$('dayBody'); body.innerHTML='';
   const blocks=sortedBlocks();
-  $('blockCountLbl').textContent=blocks.length+' blocks · '+S.tasks.length+' tasks';
   if(!S.tasks.length&&!blocks.length){
     const e=document.createElement('div');
     e.className='empty';
-    e.innerHTML='<h3>The bottle stands empty</h3><p>Add time blocks and tasks — or pour a sample day to feel how the evening runs.</p>';
+    e.innerHTML='<h3>The bottle stands empty</h3><p>Add time blocks and tasks — or pour a sample day to feel how the evening runs.</p>'+
+      '<p style="margin-top:14px"><button class="btn ghost magnet" data-act="seed">Pour a sample day</button></p>';
     body.appendChild(e);
-    $('seedBtn').style.display='inline-block';
-  } else $('seedBtn').style.display='none';
+  }
 
   const m=minsNow();
   const renderGroup=(label,time,tasks,cls,blockId,cd)=>{
@@ -1352,7 +1368,7 @@ function renderDay(){
     const open=ts.some(t=>!t.done&&!t.spilled);
     const left=toMins(b.end)-m;
     const cls=(ended?'ended':'')+(live&&open&&left<=15?' lastcall':'');
-    const cd= ended?'closed': live?'closes in '+cdText(left):'opens '+fmtHM(b.start);
+    const cd= live?'closes in '+cdText(left):'';
     renderGroup(b.label, fmtHM(b.start)+' – '+fmtHM(b.end), ts, cls, b.id, cd);
   }
   const loose=S.tasks.filter(t=>!t.blockId||!blockById(t.blockId));
@@ -1370,11 +1386,57 @@ function renderDay(){
 function renderAll(){ renderBottle(); renderShelf(); renderTimeline(); renderNowline(); renderDay(); }
 
 /* ================= events ================= */
+/* Hold-to-pour: a live task isn't ticked off — it's poured in. Press and hold
+   the ring: the cork lifts, the stream runs, a gold ring fills around your
+   thumb. Let go early and the pour aborts — the bottle keeps what it's owed. */
+const HOLD_MS=900;
+let hold=null, lastHoldSfx=0, suppressTickUntil=0, pourHintShown=false;
+document.addEventListener('pointerdown',e=>{
+  const tick=e.target.closest('.tick'); if(!tick) return;
+  const t=S.tasks.find(x=>x.id===tick.dataset.id);
+  if(!t||t.done||t.spilled) return;
+  e.preventDefault();
+  try{ tick.setPointerCapture(e.pointerId); }catch(_){}
+  hold={id:t.id,tick,row:tick.closest('.task'),t0:performance.now(),pid:e.pointerId};
+  hold.row.classList.add('holding');
+  holdPour=true; waveAmp=Math.max(waveAmp,.05);
+  audio(); sfxCork(); setTimeout(()=>{ if(holdPour) sfxPour(); },130);
+  lastHoldSfx=performance.now()+130;
+});
+function releaseHold(e){
+  if(!hold||e.pointerId!==hold.pid) return;
+  const held=performance.now()-hold.t0;
+  hold.row.classList.remove('holding');
+  hold.tick.style.removeProperty('--p');
+  hold=null; holdPour=false;
+  if(held<250&&!pourHintShown){ pourHintShown=true; toast('Hold the ring to pour it in, darling.',false,'The House'); }
+}
+document.addEventListener('pointerup',releaseHold);
+document.addEventListener('pointercancel',releaseHold);
+function stepHold(t){
+  if(!hold) return;
+  const p=Math.min(1,(t-hold.t0)/HOLD_MS);
+  hold.tick.style.setProperty('--p',p);
+  waveAmp=Math.max(waveAmp,.05);
+  if(t-lastHoldSfx>850){ lastHoldSfx=t; sfxPour(); }
+  if(p>=1){
+    const id=hold.id,row=hold.row;
+    hold=null; holdPour=false; suppressTickUntil=t+500;
+    completeTask(id,row,true);
+  }
+}
 document.addEventListener('click',e=>{
   const btn=e.target.closest('[data-act]'); if(!btn) return;
   const id=btn.dataset.id;
-  if(btn.dataset.act==='tick') completeTask(id, btn.closest('.task'));
+  if(btn.dataset.act==='tick'){
+    const t=S.tasks.find(x=>x.id===id);
+    if(performance.now()<suppressTickUntil) return;
+    /* live tasks pour via hold (pointer) — keyboard activation (detail 0) completes instantly */
+    if(t&&!t.done&&!t.spilled&&e.detail!==0) return;
+    completeTask(id, btn.closest('.task'));
+  }
   if(btn.dataset.act==='del') deleteTask(id);
+  if(btn.dataset.act==='seed') seedDay();
   if(btn.dataset.act==='delblock'){
     if(confirm('Close this block? Its tasks move to Anytime.')){
       S.tasks.forEach(t=>{ if(t.blockId===id) t.blockId=null; });
@@ -1382,10 +1444,13 @@ document.addEventListener('click',e=>{
     }
   }
 });
+$('tRitual').addEventListener('click',()=>{
+  const b=$('tRitual'); b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true');
+});
 $('tAddBtn').addEventListener('click',()=>{
   const v=$('tTitle').value.trim(); if(!v){ $('tTitle').focus(); return; }
-  addTask(v, $('tBlock').value||null, $('tRitual').checked);
-  $('tTitle').value=''; $('tRitual').checked=false; $('tTitle').focus();
+  addTask(v, $('tBlock').value||null, $('tRitual').getAttribute('aria-pressed')==='true');
+  $('tTitle').value=''; $('tRitual').setAttribute('aria-pressed','false'); $('tTitle').focus();
 });
 $('tTitle').addEventListener('keydown',e=>{ if(e.key==='Enter') $('tAddBtn').click(); });
 $('blockToggle').addEventListener('click',()=>$('blockAdd').classList.toggle('open'));
@@ -1401,7 +1466,7 @@ $('muteBtn').addEventListener('click',()=>{
   $('muteState').textContent=S.settings.muted?'OFF':'ON';
   if(!S.settings.muted) sfxClink();
 });
-$('seedBtn').addEventListener('click',()=>{
+function seedDay(){
   const mkT=(h1,m1,h2,m2,label)=>({id:uid(),label,start:pad(h1)+':'+pad(m1),end:pad(h2)+':'+pad(m2)});
   const now=new Date(); const h=now.getHours();
   const b1=mkT(Math.max(6,h),0,Math.min(23,Math.max(6,h)+2),0,'Deep Work');
@@ -1414,7 +1479,7 @@ $('seedBtn').addEventListener('click',()=>{
   addTask('Plan tomorrow before midnight', null, true);
   sfxCork();
   toast('A sample evening, on the house. Now — pour.',false,'The House');
-});
+}
 $('demoBtn').addEventListener('click',()=>{
   demoDip=16; sfxGlug(5); toast(pick(LINES.spill),true);
 });
@@ -1461,4 +1526,5 @@ setInterval(()=>{
 })();
 </script>
 
+</body>
 </html>
