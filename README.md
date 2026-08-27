@@ -32,10 +32,13 @@ browser. Zero dependencies, zero build step, zero audio assets.
   tilts — with spring-damper slosh, waves, GL-point bubbles, a cork that pops
   off during pours, and a projected 2D overlay for pour streams, droplets, and
   confetti. Falls back to a flat 2D bottle without WebGL.
-- **Look**: candlelit amber palette over a generative cinematic background
-  (drifting candle glows, smoke wisps, gold dust) rendered on canvas; custom
-  cursor, magnetic buttons, liquid-fill intro. `prefers-reduced-motion`
-  disables ambient animation and the idle spin.
+- **Look**: candlelit amber palette over a **molten liquid background** — a
+  full-viewport GLSL shader (fbm waves, scrolling caustics, a bright meniscus
+  line, gold dust, god rays) whose sea level rises with today's completion
+  percentage, so the room itself fills as you pour. Mouse parallax; falls back
+  to a 2D candle-glow canvas without WebGL. Custom cursor, magnetic buttons,
+  liquid-fill intro. `prefers-reduced-motion` freezes the sea to a single
+  frame and disables the idle spin.
 - **Audio**: every SFX (cork pop, pour, clink, glug, fanfare) is synthesized
   live with the Web Audio API — no asset files. Audio unlocks on first user
   gesture per browser autoplay policy; the mute toggle persists.

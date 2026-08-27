@@ -38,7 +38,7 @@
   .mono{font-family:var(--mono)}
 
   /* ---------- cinematic living background ---------- */
-  #cine{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+  #bg,#cine{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
   .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
     background:radial-gradient(120% 90% at 50% 40%, transparent 52%, rgba(0,0,0,.55) 100%)}
   .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
@@ -259,6 +259,7 @@
   }
 </style>
 
+<canvas id="bg" aria-hidden="true"></canvas>
 <canvas id="cine" aria-hidden="true"></canvas>
 <div class="vignette" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
@@ -530,6 +531,110 @@ function drawCine(t,dt){
   }
   cctx.globalAlpha=1;
   cctx.globalCompositeOperation='source-over';
+}
+
+/* =====================================================================
+   MOLTEN BACKGROUND — full-viewport GLSL liquid. The amber sea's level
+   tracks today's completion %, so the room itself fills as you pour.
+   Falls back to the 2D candle-glow canvas above when WebGL is missing.
+===================================================================== */
+const bgc=$('bg');
+let bgl=null; try{ bgl=bgc.getContext('webgl',{alpha:false,antialias:false}); }catch(e){}
+let BG_OK=false, bgProg=null, bgStaticDrawn=false;
+const bgT0=performance.now();
+const BG_V=`attribute vec2 aP;void main(){gl_Position=vec4(aP,0.,1.);}`;
+const BG_F=`precision mediump float;
+uniform vec2 uRes;uniform float uT,uFill,uAgit;uniform vec2 uMouse;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+float vnoise(vec2 p){
+ vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.0-2.0*f);
+ return mix(mix(hash(i),hash(i+vec2(1.,0.)),u.x),
+            mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),u.x),u.y);
+}
+float fbm(vec2 p){
+ float v=0.,a=.5;
+ for(int k=0;k<4;k++){v+=a*vnoise(p);p*=2.03;a*=.5;}
+ return v;
+}
+void main(){
+ vec2 uv=gl_FragCoord.xy/uRes;
+ uv+= (uMouse-.5)*vec2(.018,.012);
+ float asp=uRes.x/uRes.y;
+
+ /* the sea's surface: a low resting pool at 0%, over half the room at 100% */
+ float lvl=mix(.13,.60,uFill);
+ float wave=(fbm(vec2(uv.x*3.0+uT*.05,uT*.03))-.5)*(.016+uAgit*.05)
+           +(fbm(vec2(uv.x*7.0-uT*.07,3.7+uT*.05))-.5)*(.006+uAgit*.03);
+ float d=uv.y-(lvl+wave);          /* >0 above the surface */
+
+ /* above: candlelit bar darkness, faint rays, drifting gold dust */
+ vec3 above=mix(vec3(.052,.030,.014),vec3(.015,.0085,.0045),smoothstep(0.,1.,uv.y));
+ float ray=pow(fbm(vec2(uv.x*5.0,.3+uT*.008)),2.0)*smoothstep(.15,1.,uv.y);
+ above+=vec3(.16,.09,.03)*ray;
+ vec2 dp=uv*vec2(72.,42.)+vec2(0.,uT*.12);
+ vec2 gcell=floor(dp),fpt=fract(dp)-.5;
+ float st=hash(gcell);
+ float spark=exp(-dot(fpt,fpt)*38.)*step(.93,st)*(.5+.5*sin(uT*1.6+st*60.));
+ above+=vec3(.95,.75,.40)*spark*.30;
+
+ /* below: molten amber with scrolling caustic light */
+ float depth=clamp((lvl-uv.y)/max(lvl,.001),0.,1.);
+ vec3 below=mix(vec3(.82,.47,.15),vec3(.15,.055,.014),pow(depth,.8));
+ float c1=fbm(vec2(uv.x*6.5*asp+uT*.06,uv.y*9.0-uT*.04));
+ float c2=fbm(vec2(uv.x*5.5*asp-uT*.05,uv.y*8.0+uT*.05));
+ float ca=pow(clamp(c1*c2*2.3,0.,1.),3.0);
+ below+=vec3(1.0,.74,.34)*ca*.45*(1.0-depth*.55);
+ below+=vec3(.9,.55,.20)*exp(-(lvl-uv.y)*14.)*.22;
+
+ vec3 col=mix(below,above,smoothstep(0.,.0035,d));
+ col+=vec3(1.0,.82,.46)*smoothstep(.0045,0.,abs(d))*.45;          /* meniscus */
+ col+=vec3(.42,.24,.09)*exp(-max(d,0.)*20.)*step(0.,d)*.30;       /* glow above */
+
+ vec2 q=uv-vec2(.5,.45);
+ col*=1.0-dot(q,q)*.85;                                            /* vignette */
+ gl_FragColor=vec4(col,1.0);
+}`;
+function bsh(g,t,s){const o=g.createShader(t);g.shaderSource(o,s);g.compileShader(o);
+ if(!g.getShaderParameter(o,g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(o));return o;}
+function sizeBG(){
+ if(!bgl) return;
+ bgc.width=Math.max(2,(innerWidth*.5)|0); bgc.height=Math.max(2,(innerHeight*.5)|0);
+ bgl.viewport(0,0,bgc.width,bgc.height);
+ bgStaticDrawn=false;
+}
+addEventListener('resize',sizeBG);
+function initBG(){
+ if(!bgl) return;
+ try{
+  const p=bgl.createProgram();
+  bgl.attachShader(p,bsh(bgl,bgl.VERTEX_SHADER,BG_V));
+  bgl.attachShader(p,bsh(bgl,bgl.FRAGMENT_SHADER,BG_F));
+  bgl.linkProgram(p);
+  if(!bgl.getProgramParameter(p,bgl.LINK_STATUS)) throw new Error(bgl.getProgramInfoLog(p));
+  bgProg=p;
+  const b=bgl.createBuffer();
+  bgl.bindBuffer(bgl.ARRAY_BUFFER,b);
+  bgl.bufferData(bgl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),bgl.STATIC_DRAW);
+  bgl.useProgram(p);
+  const aP=bgl.getAttribLocation(p,'aP');
+  bgl.enableVertexAttribArray(aP); bgl.vertexAttribPointer(aP,2,bgl.FLOAT,false,0,0);
+  sizeBG();
+  BG_OK=true;
+  cine.style.display='none';
+ }catch(e){ console.error(e); }
+}
+function drawBG(t){
+ if(!BG_OK) return;
+ if(reduceMotion&&bgStaticDrawn) return;
+ bgStaticDrawn=true;
+ bgl.useProgram(bgProg);
+ bgl.uniform2f(bgl.getUniformLocation(bgProg,'uRes'),bgc.width,bgc.height);
+ bgl.uniform1f(bgl.getUniformLocation(bgProg,'uT'),reduceMotion?0:(t-bgT0)/1000);
+ bgl.uniform1f(bgl.getUniformLocation(bgProg,'uFill'),clamp(displayPct/100,0,1));
+ bgl.uniform1f(bgl.getUniformLocation(bgProg,'uAgit'),clamp(waveAmp*4,0,1));
+ bgl.uniform2f(bgl.getUniformLocation(bgProg,'uMouse'),
+   clamp(curX/Math.max(1,innerWidth),0,1),clamp(1-curY/Math.max(1,innerHeight),0,1));
+ bgl.drawArrays(bgl.TRIANGLES,0,3);
 }
 
 /* =====================================================================
@@ -1002,7 +1107,8 @@ function loop(){
   if(!running) return;
   const t=performance.now(); const dt=clamp((t-lastT)/1000,.001,.05); lastT=t;
   stepSim(dt,t); stepOverlay(dt,t);
-  if(!reduceMotion) drawCine(t,dt*60);
+  if(BG_OK) drawBG(t);
+  else if(!reduceMotion) drawCine(t,dt*60);
   if(GL_OK){ drawGL(t); drawOverlay(t); } else drawFlat();
   stepCursor();
   $('pctLbl').textContent=Math.round(displayPct);
@@ -1301,9 +1407,9 @@ rollDayIfNeeded();
 $('dateLbl').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
 $('muteState').textContent=S.settings.muted?'OFF':'ON';
 displayPct=pct(); targetPct=displayPct;
-sizeStage(); initCine();
+sizeStage(); initCine(); initBG();
 if(GL_OK){ try{ initGL(); }catch(e){ console.error(e); } }
-if(reduceMotion){ drawCine(0,0); }
+if(reduceMotion&&!BG_OK){ drawCine(0,0); }
 renderAll();
 requestAnimationFrame(loop);
 requestAnimationFrame(()=>document.body.classList.add('ready'));
