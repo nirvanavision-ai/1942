@@ -39,6 +39,7 @@
 
 ## Legal Guardrail
 
-The bottle silhouette, label, and mark must stay original. "1942" is used as a
-number. Never reproduce Diageo's Don Julio wordmark, logo, or trade dress —
-_Hermès v. Rothschild_ settled that "it's art" is not a defense.
+The bottle geometry may be faithful to the physical 1942 silhouette (client
+direction), and "1942" is used as a number. All graphics stay original: never
+reproduce Diageo's Don Julio wordmark, script logotype, medallion figure, or
+label art — _Hermès v. Rothschild_ settled that "it's art" is not a defense.
