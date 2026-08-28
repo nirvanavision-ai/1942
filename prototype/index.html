@@ -883,8 +883,9 @@ void main(){
  float depth=clamp(uLevel-vW.y,0.0,3.2);
  vec3 col=vec3(1.0,0.76,0.35)*exp(-vec3(.50,1.15,2.60)*depth*.62);
  col=max(col,vec3(.13,.050,.014));
- float men=smoothstep(0.16,0.0,-h);
- col+=men*vec3(0.34,0.22,0.09);
+ float men=smoothstep(0.26,0.0,-h);
+ col+=men*vec3(0.52,0.34,0.14);
+ col+=vec3(0.26,0.14,0.045)*smoothstep(1.1,0.0,depth);
  float stripe=0.5+0.5*sin(6.0*vW.x+3.0*vW.z+uT*0.7);
  col+=stripe*0.05*vec3(1.0,0.82,0.45);
  col+=env(reflect(-V,N))*.06;
