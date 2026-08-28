@@ -8,7 +8,7 @@
 <body>
 <title>The 1942 Pour Meter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Pinyon+Script&display=swap">
 <style>
   @property --fillp { syntax:'<percentage>'; inherits:false; initial-value:0%; }
   :root{
@@ -736,10 +736,15 @@ function mRotX(a){ const c=Math.cos(a),s=Math.sin(a);
   return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]); }
 function mTrans(x,y,z){ const o=mIdent(); o[12]=x;o[13]=y;o[14]=z; return o; }
 
-/* ---- bottle profile: slender 1942 cone ---- */
-const PROF=[[0,0],[0.001,0.585],[0.05,0.62],[0.34,0.60],[2.42,0.295],[2.66,0.185],[2.90,0.142],[3.10,0.130],[3.56,0.125],[3.64,0.139],[3.72,0.139]];
-const CORK=[[3.70,0.0],[3.701,0.16],[3.95,0.175],[4.08,0.16],[4.18,0.10],[4.22,0]];
-const LIQ_LO=0.06, LIQ_HI=3.20, PIVOT=2.0, BOT_H=4.25;
+/* ---- bottle profile, measured against the real 1942: one continuous,
+   slightly concave taper base-to-collar (no shoulder), short proud collar,
+   and a wide wooden ball stopper ---- */
+const PROF=[[0,0],[0.001,0.50],[0.06,0.52],[0.56,0.455],[1.12,0.395],[1.68,0.335],
+  [2.23,0.272],[2.68,0.215],[3.05,0.168],[3.35,0.142],[3.50,0.132],
+  [3.52,0.140],[3.72,0.140]];
+const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.82,0.105],
+  [3.86,0.155],[3.92,0.196],[4.00,0.220],[4.08,0.210],[4.16,0.170],[4.22,0.105],[4.26,0]];
+const LIQ_LO=0.06, LIQ_HI=3.28, PIVOT=2.0, BOT_H=4.25;
 function radiusAt(y){
   for(let i=1;i<PROF.length;i++){
     if(y<=PROF[i][0]){
@@ -846,12 +851,12 @@ void main(){
  float fr=.04+.96*pow(1.0-NoV,5.0);
  vec3 refl=env(reflect(-V,N));
  vec3 refr=env(refract(-V,N,1.0/1.5));
- float thick=mix(2.4,.35,NoV)*(1.0+smoothstep(1.1,0.0,vW.y)*1.4);
- vec3 trans=refr*exp(-vec3(.30,.55,1.05)*thick);
+ float thick=mix(2.6,.45,NoV)*(1.0+smoothstep(1.1,0.0,vW.y)*1.4);
+ vec3 trans=refr*exp(-vec3(.42,.85,1.55)*thick);
  float cc=pow(max(dot(N,normalize(normalize(vec3(-.45,.55,.65))+V)),0.0),240.0)*2.2
          +pow(max(dot(N,normalize(normalize(vec3(.70,.25,-.60))+V)),0.0),120.0)*.9;
- vec3 col=trans*.65+refl*fr*1.35+vec3(1.0,.96,.88)*cc;
- float a=.055+fr*.50+min(cc,1.0)*.85;
+ vec3 col=trans*.70+refl*fr*1.55+vec3(1.0,.96,.88)*cc;
+ float a=.07+fr*.55+min(cc,1.0)*.85;
  vec4 tex=texture2D(uTex,vT);
  col=mix(col,tex.rgb,tex.a);
  a=max(a,tex.a*0.94);
@@ -867,9 +872,10 @@ void main(){
  vec3 V=normalize(uCam-vW);
  vec3 L=normalize(vec3(-.45,.55,.65));
  float d=max(dot(N,L),0.0);
- float s=pow(max(dot(N,normalize(L+V)),0.0),40.0);
+ float s=pow(max(dot(N,normalize(L+V)),0.0),90.0);
  float fr=pow(1.0-max(dot(N,V),0.0),2.5);
- vec3 col=vec3(0.25,0.14,0.07)*(0.5+0.6*d)+s*vec3(0.9,0.72,0.45)+env(reflect(-V,N))*fr*.35;
+ float grain=0.90+0.10*sin(vW.y*40.0+sin(vW.x*30.0)*2.0);
+ vec3 col=vec3(0.115,0.048,0.026)*grain*(0.45+0.65*d)+s*vec3(1.0,.80,.55)*.75+env(reflect(-V,N))*fr*.30;
  gl_FragColor=vec4(col,1.0);
 }`;
 
@@ -905,41 +911,63 @@ function makeLabelTexture(){
   const x=c.getContext('2d');
   const ty=y=>(1-y/BOT_H)*1024;
   x.clearRect(0,0,1024,1024);
-  const bandTop=ty(3.55), bandBot=ty(2.78);
-  x.fillStyle='rgba(14,9,4,.94)';
-  x.fillRect(0,bandTop,1024,bandBot-bandTop);
-  x.fillStyle='rgba(212,160,68,.9)';
-  x.fillRect(0,bandTop,1024,3); x.fillRect(0,bandBot-3,1024,3);
-  x.save(); x.translate(512,ty(3.5)); x.rotate(Math.PI/2); x.scale(1,5);
-  x.font='500 15px "IBM Plex Mono",monospace'; x.textAlign='left';
-  x.fillStyle='rgba(240,200,120,.98)'; x.fillText('1942 · TEQUILA',0,4); x.restore();
-  const my=ty(2.62);
-  x.save(); x.translate(512,my); x.scale(2.4,1); x.translate(-512,-my);
-  x.beginPath(); x.ellipse(512,my,30,38,0,0,7);
-  x.fillStyle='rgba(14,9,4,.95)'; x.fill();
-  x.lineWidth=3.5; x.strokeStyle='rgba(232,185,92,.98)'; x.stroke();
-  x.font='400 26px Marcellus,serif'; x.textAlign='center';
-  x.fillStyle='#f0c878'; x.fillText('42',512,my+9);
-  x.beginPath(); x.moveTo(512,my+62); x.lineTo(494,my+44); x.lineTo(530,my+44); x.closePath();
-  x.fillStyle='rgba(232,185,92,.85)'; x.fill();
+  const GOLD='rgba(232,185,92,.96)', CREAM='rgba(250,236,205,.95)';
+  const agave=(cx,cy,s)=>{           /* original mark: a fanned agave */
+    x.save(); x.translate(cx,cy); x.strokeStyle=GOLD; x.lineWidth=s*.14; x.lineCap='round';
+    for(let i=-3;i<=3;i++){ const a=i*0.42;
+      x.beginPath(); x.moveTo(0,s*.55);
+      x.quadraticCurveTo(Math.sin(a)*s*.45, s*.1, Math.sin(a)*s*.95, -Math.cos(a*.6)*s);
+      x.stroke(); }
+    x.restore();
+  };
+  /* foil collar: two gold hairlines wrapping the top of the glass */
+  x.fillStyle=GOLD; x.fillRect(0,ty(3.60),1024,2.5); x.fillRect(0,ty(3.53),1024,2.5);
+  /* neck ribbon, front only: dark band from collar to a medallion with a V
+     tail. The neck is thin, so texture-u arcs must be wide to read at size. */
+  const rx0=412,rx1=612,ry0=ty(3.60),ry1=ty(3.00);
+  x.fillStyle='rgba(16,10,5,.95)';
+  x.beginPath(); x.moveTo(rx0,ry0); x.lineTo(rx1,ry0); x.lineTo(rx1,ry1);
+  x.lineTo(512,ry1+26); x.lineTo(rx0,ry1); x.closePath(); x.fill();
+  x.lineWidth=2.5; x.strokeStyle=GOLD; x.stroke();
+  x.save(); x.translate(512,ty(3.53)); x.rotate(Math.PI/2); x.scale(1,4.2);
+  x.textAlign='left'; x.textBaseline='middle';
+  x.font='400 32px Marcellus,serif'; x.fillStyle=CREAM;
+  x.fillText('1 9 4 2',2,-1);
+  x.font='500 13px "IBM Plex Mono",monospace'; x.fillStyle='rgba(240,200,120,.85)';
+  x.fillText('AÑEJO',158,-1);
   x.restore();
-  /* the signature move: "1942" engraved vertically down the front of the cone */
-  x.save(); x.translate(512,ty(2.30)); x.rotate(Math.PI/2); x.scale(1,2.1);
-  x.font='400 108px Marcellus,serif'; x.textAlign='left'; x.textBaseline='middle';
-  x.fillStyle='rgba(255,248,235,.96)';
-  x.shadowColor='rgba(28,13,4,.8)'; x.shadowBlur=12;
-  let vx=0;
-  for(const ch of '1942'){ x.fillText(ch,vx,0); vx+=x.measureText(ch).width+30; }
-  x.shadowBlur=0;
-  x.font='500 21px "IBM Plex Mono",monospace';
-  x.fillStyle='rgba(240,200,120,.9)';
-  x.fillText('T E Q U I L A',8,74);
+  /* the medallion */
+  const my=ty(2.72);
+  x.fillStyle='rgba(16,10,5,.97)';
+  x.beginPath(); x.ellipse(512,my,178,42,0,0,7); x.fill();
+  x.lineWidth=5; x.strokeStyle=GOLD;
+  x.beginPath(); x.ellipse(512,my,178,42,0,0,7); x.stroke();
+  x.lineWidth=1.8;
+  x.beginPath(); x.ellipse(512,my,150,33,0,0,7); x.stroke();
+  x.save(); x.translate(512,my+14); x.scale(5.2,1); agave(0,-16,24); x.restore();
+  x.beginPath(); x.moveTo(512,my+84); x.lineTo(444,my+40); x.lineTo(580,my+40); x.closePath();
+  x.fillStyle='rgba(16,10,5,.95)'; x.fill(); x.lineWidth=3; x.strokeStyle=GOLD; x.stroke();
+  /* base block, front only — the layout of the real label, original marks */
+  x.save(); x.translate(512,0); x.scale(1.5,1); x.translate(-512,0);
+  x.textAlign='center';
+  x.font='400 22px Marcellus,serif'; x.fillStyle=GOLD;
+  x.fillText('19',484,ty(1.30)); x.fillText('42',540,ty(1.30));
   x.restore();
-  x.save(); x.translate(512,0); x.scale(1.35,1); x.translate(-512,0);
-  x.font='500 16px "IBM Plex Mono",monospace'; x.textAlign='center';
-  x.fillStyle='rgba(255,240,214,.9)';
-  x.fillText('AÑEJO · POUR METER',512,ty(0.72));
-  x.fillText('70 CL · ALC. 100% EFFORT',512,ty(0.58));
+  agave(512,ty(1.30)-8,16);
+  x.save(); x.translate(512,0); x.scale(1.5,1); x.translate(-512,0);
+  x.textAlign='center';
+  x.font='400 62px "Pinyon Script",cursive'; x.fillStyle=CREAM;
+  x.shadowColor='rgba(28,13,4,.7)'; x.shadowBlur=8;
+  x.fillText('Pour Meter',512,ty(1.06));
+  x.font='400 74px Marcellus,serif';
+  x.fillText('1942',512,ty(0.80)); x.shadowBlur=0;
+  x.font='500 14px "IBM Plex Mono",monospace'; x.fillStyle='rgba(255,240,214,.88)';
+  x.fillText('100% EFFORT · TEQUILA AÑEJO',512,ty(0.62));
+  x.strokeStyle='rgba(240,200,120,.75)'; x.lineWidth=1.6;
+  x.beginPath(); x.moveTo(440,ty(0.50));
+  x.bezierCurveTo(470,ty(0.50)-16,500,ty(0.50)+10,540,ty(0.50)-6);
+  x.bezierCurveTo(560,ty(0.50)-14,576,ty(0.50)+4,588,ty(0.50)-4);
+  x.stroke();
   x.restore();
   const t=gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D,t);
@@ -952,7 +980,7 @@ function makeLabelTexture(){
   labelTex=t;
 }
 
-const CAM=[0,2.1,7.6];
+const CAM=[0,2.14,8.2];
 let P=null,V=null, cssW=340, cssH=425, dpr=1;
 function sizeStage(){
   cssW=stage.clientWidth||340; cssH=cssW*1.25;
@@ -974,7 +1002,7 @@ function initGL(){
   ptBuf=gl.createBuffer();
   makeLabelTexture();
   try{ if(document.fonts&&document.fonts.ready) document.fonts.ready.then(makeLabelTexture); }catch(e){}
-  V=mLookAt(CAM,[0,2.02,0],[0,1,0]);
+  V=mLookAt(CAM,[0,2.08,0],[0,1,0]);
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE);
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0,0,0,0);
