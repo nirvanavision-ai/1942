@@ -743,8 +743,9 @@ function mTrans(x,y,z){ const o=mIdent(); o[12]=x;o[13]=y;o[14]=z; return o; }
 const PROF=[[0,0],[0.001,0.50],[0.06,0.52],[0.56,0.455],[1.12,0.395],[1.68,0.335],
   [2.23,0.272],[2.68,0.215],[3.05,0.168],[3.35,0.142],[3.50,0.132],
   [3.52,0.140],[3.72,0.140]];
-const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.82,0.108],
-  [3.88,0.190],[3.96,0.235],[4.05,0.235],[4.13,0.200],[4.19,0.130],[4.22,0]];
+const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.81,0.110],
+  [3.83,0.185],[3.88,0.185],[3.90,0.150],
+  [3.95,0.215],[4.02,0.245],[4.10,0.240],[4.17,0.190],[4.22,0.120],[4.24,0]];
 const LIQ_LO=0.06, LIQ_HI=3.28, PIVOT=2.0, BOT_H=4.25;
 function radiusAt(y){
   for(let i=1;i<PROF.length;i++){
@@ -762,24 +763,28 @@ function densify(prof,step){
     for(let k=1;k<=n;k++) out.push([y0+(y1-y0)*k/n, r0+(r1-r0)*k/n]);
   } return out;
 }
-/* The 1942 is not a round cone: the body is a flattened four-sided taper
-   with soft corner edges that morphs into a round collar at the top. flatZ
-   squashes the depth axis, pow>2 squares off the cross-section, and both
-   relax to a circle over the neck. Omit both for a plain circular lathe. */
-function lathe(prof,SEG,flatZ,pw){
+/* The 1942 is not a round cone: per the wireframe turnaround, the front
+   tapers while the DEPTH stays nearly constant — a slab at the base that
+   becomes a round neck where width meets depth. `depth` is the target
+   half-depth; pow squares the corners on the flattened part; a subtle
+   crease ridge runs down the front and back faces. Omit depth for a plain
+   circular lathe. */
+function lathe(prof,SEG,depth,pw){
   const P=densify(prof,0.10), R=P.length;
   const verts=[], idx=[];
   for(let i=0;i<R;i++){
     const [y,r]=P[i];
-    let f=1, n=2;
-    if(flatZ){
-      const t=clamp((y-2.55)/(3.45-2.55),0,1), s=t*t*(3-2*t);
-      f=flatZ+(1-flatZ)*s; n=pw+(2-pw)*s;
+    let f=1, n=2, flat=0;
+    if(depth){
+      f=clamp(depth/Math.max(r,1e-4),0.40,1);
+      flat=clamp((1-f)/0.6,0,1);
+      n=2+(pw-2)*flat;
     }
     const se=v=>Math.sign(v)*Math.pow(Math.abs(v),2/n);
     for(let j=0;j<=SEG;j++){
       const th=(j/SEG-0.5)*Math.PI*2;
-      verts.push(r*se(Math.sin(th)), y, r*se(Math.cos(th))*f,  0,0,0,  j/SEG, y/BOT_H);
+      const crease=1+0.016*flat*(Math.exp(-Math.pow(th/0.16,2))+Math.exp(-Math.pow((Math.abs(th)-Math.PI)/0.16,2)));
+      verts.push(r*se(Math.sin(th))*crease, y, r*se(Math.cos(th))*f*crease,  0,0,0,  j/SEG, y/BOT_H);
     }
   }
   for(let i=0;i<R-1;i++)for(let j=0;j<SEG;j++){
@@ -985,7 +990,7 @@ function makeLabelTexture(){
   x.lineWidth=2.5; x.strokeStyle=GOLD; x.stroke();
   x.save(); x.translate(512,ty(3.53)); x.rotate(Math.PI/2); x.scale(1,4.2);
   x.textAlign='left'; x.textBaseline='middle';
-  x.font='400 32px Marcellus,serif'; x.fillStyle=CREAM;
+  x.font='400 36px Marcellus,serif'; x.fillStyle=CREAM;
   x.fillText('1 9 4 2',2,-1);
   x.font='500 13px "IBM Plex Mono",monospace'; x.fillStyle='rgba(240,200,120,.85)';
   x.fillText('AÑEJO',158,-1);
@@ -1068,7 +1073,7 @@ function initGL(){
   progBD=prog(BD_V,BD_F);
   bdBuf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bdBuf);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
-  meshBody=mkMesh(lathe(PROF,64,0.62,3.4));
+  meshBody=mkMesh(lathe(PROF,64,0.215,3.6));
   meshCork=mkMesh(lathe(CORK,48));
   ptBuf=gl.createBuffer();
   makeLabelTexture();
