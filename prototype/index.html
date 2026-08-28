@@ -411,6 +411,7 @@
 </div></main>
 
 <footer class="app wrap rise d3">
+  <button id="engraveBtn">Engrave the bottle</button>
   <button id="demoBtn">Preview the tragedy (demo a spill)</button>
   <button id="resetBtn">Restock today’s bottle</button>
 </footer>
@@ -438,8 +439,8 @@ const finePointer = matchMedia('(pointer: fine)').matches;
 const KEY='pourmeter.v1';
 const GOAL=80;
 let S=null;
-function defaults(){ return { version:1, dayKey:todayKey(), blocks:[], tasks:[], history:[], streak:{current:0,best:0,reserve:0}, settings:{muted:false} }; }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const p=JSON.parse(raw); if(p&&p.version===1){ if(p.streak&&p.streak.reserve==null) p.streak.reserve=0; return p; } } }catch(e){} return null; }
+function defaults(){ return { version:1, dayKey:todayKey(), blocks:[], tasks:[], history:[], streak:{current:0,best:0,reserve:0}, settings:{muted:false,owner:''} }; }
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const p=JSON.parse(raw); if(p&&p.version===1){ if(p.streak&&p.streak.reserve==null) p.streak.reserve=0; if(p.settings&&p.settings.owner==null) p.settings.owner=''; return p; } } }catch(e){} return null; }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function buzz(p){ try{ if(!S.settings.muted&&navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 
@@ -742,8 +743,8 @@ function mTrans(x,y,z){ const o=mIdent(); o[12]=x;o[13]=y;o[14]=z; return o; }
 const PROF=[[0,0],[0.001,0.50],[0.06,0.52],[0.56,0.455],[1.12,0.395],[1.68,0.335],
   [2.23,0.272],[2.68,0.215],[3.05,0.168],[3.35,0.142],[3.50,0.132],
   [3.52,0.140],[3.72,0.140]];
-const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.82,0.105],
-  [3.86,0.155],[3.92,0.196],[4.00,0.220],[4.08,0.210],[4.16,0.170],[4.22,0.105],[4.26,0]];
+const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.82,0.108],
+  [3.88,0.190],[3.96,0.235],[4.05,0.235],[4.13,0.200],[4.19,0.130],[4.22,0]];
 const LIQ_LO=0.06, LIQ_HI=3.28, PIVOT=2.0, BOT_H=4.25;
 function radiusAt(y){
   for(let i=1;i<PROF.length;i++){
@@ -761,23 +762,50 @@ function densify(prof,step){
     for(let k=1;k<=n;k++) out.push([y0+(y1-y0)*k/n, r0+(r1-r0)*k/n]);
   } return out;
 }
-function lathe(prof,SEG){
+/* The 1942 is not a round cone: the body is a flattened four-sided taper
+   with soft corner edges that morphs into a round collar at the top. flatZ
+   squashes the depth axis, pow>2 squares off the cross-section, and both
+   relax to a circle over the neck. Omit both for a plain circular lathe. */
+function lathe(prof,SEG,flatZ,pw){
   const P=densify(prof,0.10), R=P.length;
   const verts=[], idx=[];
   for(let i=0;i<R;i++){
     const [y,r]=P[i];
-    const yp=P[Math.max(0,i-1)], yn=P[Math.min(R-1,i+1)];
-    let dy=yn[0]-yp[0], dr=yn[1]-yp[1];
-    let nl=Math.hypot(dy,dr)||1; let nr=dy/nl, ny=-dr/nl;
+    let f=1, n=2;
+    if(flatZ){
+      const t=clamp((y-2.55)/(3.45-2.55),0,1), s=t*t*(3-2*t);
+      f=flatZ+(1-flatZ)*s; n=pw+(2-pw)*s;
+    }
+    const se=v=>Math.sign(v)*Math.pow(Math.abs(v),2/n);
     for(let j=0;j<=SEG;j++){
       const th=(j/SEG-0.5)*Math.PI*2;
-      const sn=Math.sin(th), cs=Math.cos(th);
-      verts.push(r*sn, y, r*cs,  nr*sn, ny, nr*cs,  j/SEG, y/BOT_H);
+      verts.push(r*se(Math.sin(th)), y, r*se(Math.cos(th))*f,  0,0,0,  j/SEG, y/BOT_H);
     }
   }
   for(let i=0;i<R-1;i++)for(let j=0;j<SEG;j++){
     const a=i*(SEG+1)+j, b=a+SEG+1;
     idx.push(a,b,a+1, a+1,b,b+1);
+  }
+  /* smooth outward normals, accumulated numerically (the cross-section is
+     no longer analytic), with the u-seam ring merged */
+  const v=verts, NV=v.length/8, acc=new Float32Array(NV*3);
+  for(let k=0;k<idx.length;k+=3){
+    const a=idx[k]*8,b=idx[k+1]*8,c=idx[k+2]*8;
+    const ux=v[b]-v[a],uy=v[b+1]-v[a+1],uz=v[b+2]-v[a+2];
+    const wx=v[c]-v[a],wy=v[c+1]-v[a+1],wz=v[c+2]-v[a+2];
+    const nx=wy*uz-wz*uy, ny=wz*ux-wx*uz, nz=wx*uy-wy*ux;
+    for(const t of [idx[k],idx[k+1],idx[k+2]]){
+      acc[t*3]+=nx; acc[t*3+1]+=ny; acc[t*3+2]+=nz;
+    }
+  }
+  for(let i=0;i<R;i++){
+    const a=(i*(SEG+1))*3, b=(i*(SEG+1)+SEG)*3;
+    const sx=acc[a]+acc[b], sy=acc[a+1]+acc[b+1], sz=acc[a+2]+acc[b+2];
+    acc[a]=acc[b]=sx; acc[a+1]=acc[b+1]=sy; acc[a+2]=acc[b+2]=sz;
+  }
+  for(let t=0;t<NV;t++){
+    const nx=acc[t*3],ny=acc[t*3+1],nz=acc[t*3+2], l=Math.hypot(nx,ny,nz)||1;
+    v[t*8+3]=nx/l; v[t*8+4]=ny/l; v[t*8+5]=nz/l;
   }
   return {v:new Float32Array(verts), i:new Uint16Array(idx), n:idx.length};
 }
@@ -932,6 +960,7 @@ function bindMesh(p,mesh){
 
 /* label texture — black band, gold lettering, medallion, base label */
 function makeLabelTexture(){
+  if(labelTex){ try{ gl.deleteTexture(labelTex); }catch(e){} labelTex=null; }
   const c=document.createElement('canvas'); c.width=1024; c.height=1024;
   const x=c.getContext('2d');
   const ty=y=>(1-y/BOT_H)*1024;
@@ -986,13 +1015,27 @@ function makeLabelTexture(){
   x.fillText('Pour Meter',512,ty(1.06));
   x.font='400 74px Marcellus,serif';
   x.fillText('1942',512,ty(0.80)); x.shadowBlur=0;
-  x.font='500 14px "IBM Plex Mono",monospace'; x.fillStyle='rgba(255,240,214,.88)';
-  x.fillText('100% EFFORT · TEQUILA AÑEJO',512,ty(0.62));
+  x.font='italic 400 16px Marcellus,serif'; x.fillStyle='rgba(240,206,140,.9)';
+  x.fillText('fundada en 1942 ~ 100% de effort',512,ty(0.64));
+  x.font='500 13px "IBM Plex Mono",monospace'; x.fillStyle='rgba(255,240,214,.88)';
+  x.fillText('T E Q U I L A   A Ñ E J O',512,ty(0.54));
   x.strokeStyle='rgba(240,200,120,.75)'; x.lineWidth=1.6;
-  x.beginPath(); x.moveTo(440,ty(0.50));
-  x.bezierCurveTo(470,ty(0.50)-16,500,ty(0.50)+10,540,ty(0.50)-6);
-  x.bezierCurveTo(560,ty(0.50)-14,576,ty(0.50)+4,588,ty(0.50)-4);
+  x.beginPath(); x.moveTo(440,ty(0.42));
+  x.bezierCurveTo(470,ty(0.42)-16,500,ty(0.42)+10,540,ty(0.42)-6);
+  x.bezierCurveTo(560,ty(0.42)-14,576,ty(0.42)+4,588,ty(0.42)-4);
   x.stroke();
+  x.font='500 12px "IBM Plex Mono",monospace'; x.fillStyle='rgba(240,200,120,.6)';
+  x.fillText('40% FOCUS/VOL · 750 mL',512,ty(0.22));
+  /* personal engraving on the bare glass between medallion and label,
+     like a bottle-shop keepsake */
+  const owner=(S&&S.settings&&S.settings.owner||'').trim();
+  if(owner){
+    x.font='400 24px Marcellus,serif'; x.fillStyle='rgba(250,236,205,.92)';
+    x.shadowColor='rgba(28,13,4,.7)'; x.shadowBlur=5;
+    x.fillText(owner.toUpperCase(),512,ty(2.06)); x.shadowBlur=0;
+    x.font='500 11px "IBM Plex Mono",monospace'; x.fillStyle='rgba(240,200,120,.75)';
+    x.fillText('· PRIVATE RESERVE ·',512,ty(1.94));
+  }
   x.restore();
   const t=gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D,t);
@@ -1025,7 +1068,7 @@ function initGL(){
   progBD=prog(BD_V,BD_F);
   bdBuf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bdBuf);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
-  meshBody=mkMesh(lathe(PROF,64));
+  meshBody=mkMesh(lathe(PROF,64,0.62,3.4));
   meshCork=mkMesh(lathe(CORK,48));
   ptBuf=gl.createBuffer();
   makeLabelTexture();
@@ -1092,7 +1135,7 @@ function stepSim(dt,t){
   if(displayPct>4 && t-lastAmb>620 && !reduceMotion){ lastAmb=t;
     const by=LIQ_LO+Math.random()*Math.max(.05,levelY()-LIQ_LO-0.1);
     const r=radiusAt(by)*.7;
-    bubbles.push({x:(Math.random()-.5)*2*r,y:by,z:(Math.random()-.5)*2*r,vy:.22+Math.random()*.2,s:7+Math.random()*7});
+    bubbles.push({x:(Math.random()-.5)*2*r,y:by,z:(Math.random()-.5)*1.2*r,vy:.22+Math.random()*.2,s:7+Math.random()*7});
   }
   const lv=levelY();
   for(let i=bubbles.length-1;i>=0;i--){ const b=bubbles[i];
@@ -1695,6 +1738,14 @@ function seedDay(){
   sfxCork();
   toast('A sample evening, on the house. Now — pour.',false,'The House');
 }
+$('engraveBtn').addEventListener('click',()=>{
+  const v=prompt('Engrave a name on the glass (leave blank to polish it off):', S.settings.owner||'');
+  if(v===null) return;
+  S.settings.owner=v.trim().slice(0,22); save();
+  if(GL_OK){ try{ makeLabelTexture(); }catch(e){} }
+  sfxClink();
+  toast(S.settings.owner? 'Engraved for '+S.settings.owner+'. A private reserve now.' : 'The glass is bare again.',false,'The House');
+});
 $('demoBtn').addEventListener('click',()=>{
   demoDip=16; sfxGlug(5); toast(pick(LINES.spill),true);
 });
