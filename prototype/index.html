@@ -798,24 +798,46 @@ gl_Position=uMVP*vec4(aP,1.0);}`;
 /* Procedural IBL: a moody nightclub environment sampled for reflection and
    refraction — two warm softboxes, a bar-shelf strip light, and the molten
    sea's floor bounce. The hand-rolled equivalent of an HDRI + Lightformers. */
+/* The environment is the commercial's set: an amber velvet curtain with
+   vertical folds, a spotlight pool behind the bottle, a glossy dark floor. */
 const ENV_GLSL=`
 vec3 env(vec3 d){
- vec3 c=mix(vec3(.012,.007,.004),vec3(.050,.030,.018),d.y*.5+.5);
+ float az=atan(d.x,d.z);
+ float back=smoothstep(0.0,0.8,-d.z);
+ float fold=0.60+0.40*sin(az*9.0+sin(az*2.0)*1.5);
+ float spot=exp(-pow((d.y-0.10)*2.6,2.0))*exp(-pow(d.x*2.2,2.0));
+ vec3 c=mix(vec3(.014,.007,.004),vec3(.30,.135,.038),back*fold*(0.35+spot*1.05));
  float k1=smoothstep(.80,.985,dot(d,normalize(vec3(-.45,.55,.65))));
  c+=vec3(1.0,.85,.60)*k1*3.0;
  float k2=smoothstep(.86,.995,dot(d,normalize(vec3(.70,.25,-.60))));
- c+=vec3(1.0,.65,.30)*k2*2.0;
- float k3=smoothstep(.94,.999,dot(normalize(vec3(d.x,0.,d.z)),normalize(vec3(-.85,0.,-.50))))*smoothstep(.75,.0,abs(d.y));
- c+=vec3(.90,.50,.20)*k3*1.1;
+ c+=vec3(1.0,.65,.30)*k2*1.6;
  c+=vec3(.55,.28,.09)*smoothstep(-.05,-.70,d.y)*1.3;
  return c;
 }
 `;
+/* the visible backdrop: curtain folds and the spotlight pool, melting into
+   the page at the canvas edges */
+const BD_V=`attribute vec2 aP;varying vec2 vU;
+void main(){vU=aP;gl_Position=vec4(aP,0.0,1.0);}`;
+const BD_F=`precision mediump float;varying vec2 vU;uniform float uT,uAsp;
+void main(){
+ vec2 p=vec2(vU.x*uAsp,vU.y);
+ float fold=0.58+0.42*sin(p.x*14.0+sin(p.x*4.0+uT*.05)*1.3);
+ float fold2=0.75+0.25*sin(p.x*33.0+1.7);
+ vec2 q=vec2(p.x*1.35,(p.y-0.05)*1.7);
+ float spot=exp(-dot(q,q));
+ vec3 c=mix(vec3(.045,.020,.008),vec3(.40,.19,.052),fold*fold2*(0.16+spot));
+ c+=vec3(1.0,.62,.22)*spot*spot*.50;
+ float fl=smoothstep(-0.46,-0.60,p.y);
+ c=mix(c,vec3(.050,.022,.009)+vec3(.50,.24,.08)*spot*.30,fl);
+ float a=smoothstep(1.05,0.45,length(vec2(p.x*.80,p.y*.92)));
+ gl_FragColor=vec4(c,a*.92);
+}`;
 
 /* añejo liquid — an absorbing volume: Beer-Lambert extinction turns the
    column bright gold at the surface and deep dark amber where it is thick */
 const LIQ_F=`precision mediump float;varying vec3 vW,vN;varying vec2 vT;
-uniform float uLevel,uTX,uTZ,uAmp,uT;uniform vec3 uCam;
+uniform float uLevel,uTX,uTZ,uAmp,uT,uMir;uniform vec3 uCam;
 `+ENV_GLSL+`
 void main(){
  float wave=uAmp*(sin(5.0*vW.x+uT*2.3)+sin(5.0*vW.z+uT*1.9))*0.5;
@@ -835,14 +857,16 @@ void main(){
   vec3 sky=env(vec3(0.,1.,0.));
   col=mix(col,vec3(.85,.60,.26)+sky*.35,.78);
  }
- gl_FragColor=vec4(col,0.97);
+ float mf=uMir>0.5? .17*smoothstep(2.2,0.0,-vW.y) : 1.0;
+ if(uMir>0.5) col*=.5;
+ gl_FragColor=vec4(col,0.97*mf);
 }`;
 
 /* glass — Schlick fresnel, ior-1.5 refraction of the environment, tinted
    Beer-Lambert transmission (thicker at grazing angles and the heavy base),
    plus a tight clearcoat lobe per softbox */
 const GLASS_F=`precision mediump float;varying vec3 vW,vN;varying vec2 vT;
-uniform sampler2D uTex;uniform vec3 uCam;
+uniform sampler2D uTex;uniform vec3 uCam;uniform float uMir;
 `+ENV_GLSL+`
 void main(){
  vec3 N=normalize(gl_FrontFacing?vN:-vN);
@@ -861,6 +885,7 @@ void main(){
  col=mix(col,tex.rgb,tex.a);
  a=max(a,tex.a*0.94);
  if(!gl_FrontFacing){a*=0.5;}
+ if(uMir>0.5){ col*=.5; a*=.17*smoothstep(2.2,0.0,-vW.y); }
  gl_FragColor=vec4(col,clamp(a,0.0,1.0));
 }`;
 
@@ -888,7 +913,7 @@ if(r>0.5) discard;
 float a=(1.0-smoothstep(0.28,0.5,r))*0.5;
 gl_FragColor=vec4(1.0,0.93,0.78,a);}`;
 
-let progLiq,progGlass,progCork,progPt, meshBody,meshCork, labelTex, ptBuf;
+let progLiq,progGlass,progCork,progPt,progBD, meshBody,meshCork, labelTex, ptBuf, bdBuf;
 const MAXB=64; const bubbleData=new Float32Array(MAXB*4); const bubbles=[];
 
 function mkMesh(m){
@@ -980,7 +1005,7 @@ function makeLabelTexture(){
   labelTex=t;
 }
 
-const CAM=[0,2.14,8.2];
+const CAM=[0,2.16,8.75];
 let P=null,V=null, cssW=340, cssH=425, dpr=1;
 function sizeStage(){
   cssW=stage.clientWidth||340; cssH=cssW*1.25;
@@ -997,6 +1022,9 @@ addEventListener('resize',sizeStage);
 
 function initGL(){
   progLiq=prog(VERT,LIQ_F); progGlass=prog(VERT,GLASS_F); progCork=prog(VERT,CORK_F); progPt=prog(PT_V,PT_F);
+  progBD=prog(BD_V,BD_F);
+  bdBuf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bdBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
   meshBody=mkMesh(lathe(PROF,64));
   meshCork=mkMesh(lathe(CORK,48));
   ptBuf=gl.createBuffer();
@@ -1089,15 +1117,50 @@ function drawGL(t){
   const MVP=mMul(P,mMul(V,M));
   const lv=levelY();
 
+  /* the set: curtain + spotlight pool, fading into the page */
+  gl.useProgram(progBD);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bdBuf);
+  const aBD=gl.getAttribLocation(progBD,'aP');
+  gl.enableVertexAttribArray(aBD); gl.vertexAttribPointer(aBD,2,gl.FLOAT,false,8,0);
+  gl.uniform1f(gl.getUniformLocation(progBD,'uT'),t/1000);
+  gl.uniform1f(gl.getUniformLocation(progBD,'uAsp'),cssW/cssH);
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+
+  /* floor reflection: the bottle mirrored through y=0, faint and fading */
+  const SM=mIdent(); SM[5]=-1;
+  const M2=mMul(SM,M), MVP2=mMul(P,mMul(V,M2));
   gl.useProgram(progLiq); bindMesh(progLiq,meshBody);
-  gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVP);
-  gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,M);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uLevel'),lv);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uTX'),tiltX);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uTZ'),tiltZ);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uAmp'),waveAmp);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uT'),t/1000);
   gl.uniform3fv(gl.getUniformLocation(progLiq,'uCam'),CAM);
+  if(displayPct>0.2){
+    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVP2);
+    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,M2);
+    gl.uniform1f(gl.getUniformLocation(progLiq,'uMir'),1);
+    gl.depthMask(false);
+    gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
+    gl.depthMask(true);
+  }
+  gl.useProgram(progGlass); bindMesh(progGlass,meshBody);
+  gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uMVP'),false,MVP2);
+  gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uM'),false,M2);
+  gl.uniform3fv(gl.getUniformLocation(progGlass,'uCam'),CAM);
+  gl.uniform1f(gl.getUniformLocation(progGlass,'uMir'),1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,labelTex);
+  gl.uniform1i(gl.getUniformLocation(progGlass,'uTex'),0);
+  gl.depthMask(false);
+  gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
+  gl.depthMask(true);
+
+  gl.useProgram(progLiq); bindMesh(progLiq,meshBody);
+  gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVP);
+  gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,M);
+  gl.uniform1f(gl.getUniformLocation(progLiq,'uMir'),0);
   if(displayPct>0.2) gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
 
   if(bubbles.length){
@@ -1125,6 +1188,7 @@ function drawGL(t){
   gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uMVP'),false,MVP);
   gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uM'),false,M);
   gl.uniform3fv(gl.getUniformLocation(progGlass,'uCam'),CAM);
+  gl.uniform1f(gl.getUniformLocation(progGlass,'uMir'),0);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,labelTex);
   gl.uniform1i(gl.getUniformLocation(progGlass,'uTex'),0);
   gl.depthMask(false);
@@ -1155,23 +1219,26 @@ function drawOverlay(t){
   if(!GL_OK||!P) return;
   const M=modelMatrix(0);
   if(pouring||holdPour){
+    /* a braided ribbon, like the macro pour in the reference footage */
     const a=project(M,[0,4.55,0]), b=project(M,[0,levelY(),0]);
-    const wig=Math.sin(t/70)*2;
     const g=fctx.createLinearGradient(a[0],a[1],b[0],b[1]);
-    g.addColorStop(0,'rgba(232,172,80,.97)'); g.addColorStop(1,'rgba(186,116,34,.94)');
-    fctx.strokeStyle=g; fctx.lineCap='round';
-    fctx.shadowColor='rgba(222,168,72,.75)'; fctx.shadowBlur=14;
+    g.addColorStop(0,'rgba(236,176,84,.97)'); g.addColorStop(1,'rgba(188,118,36,.94)');
+    fctx.lineCap='round';
+    fctx.shadowColor='rgba(226,170,74,.8)'; fctx.shadowBlur=16;
+    fctx.strokeStyle=g;
     fctx.beginPath(); fctx.moveTo(a[0],a[1]);
-    fctx.quadraticCurveTo((a[0]+b[0])/2+wig,(a[1]+b[1])/2, b[0],b[1]);
-    fctx.lineWidth=5.2+Math.sin(t/90)*1.1; fctx.stroke(); fctx.shadowBlur=0;
-    fctx.strokeStyle='rgba(255,244,210,.95)';
-    fctx.beginPath(); fctx.moveTo(a[0],a[1]);
-    fctx.quadraticCurveTo((a[0]+b[0])/2+wig,(a[1]+b[1])/2, b[0],b[1]);
-    fctx.lineWidth=1.8; fctx.stroke();
-    const ph=(t/260)%1;
-    fctx.strokeStyle='rgba(255,240,200,'+(0.6*(1-ph))+')';
+    fctx.quadraticCurveTo((a[0]+b[0])/2+Math.sin(t/70)*2.4,(a[1]+b[1])/2, b[0],b[1]);
+    fctx.lineWidth=7.0+Math.sin(t/90)*1.4; fctx.stroke(); fctx.shadowBlur=0;
+    fctx.strokeStyle='rgba(255,246,214,.9)';
+    for(const ph of [0,2.4]){
+      fctx.beginPath(); fctx.moveTo(a[0],a[1]);
+      fctx.quadraticCurveTo((a[0]+b[0])/2+Math.sin(t/62+ph)*3.2,(a[1]+b[1])/2, b[0],b[1]);
+      fctx.lineWidth=1.6; fctx.stroke();
+    }
+    const ph2=(t/260)%1;
+    fctx.strokeStyle='rgba(255,240,200,'+(0.6*(1-ph2))+')';
     fctx.lineWidth=1.2;
-    fctx.beginPath(); fctx.ellipse(b[0],b[1],6+ph*16,2+ph*5,0,0,7); fctx.stroke();
+    fctx.beginPath(); fctx.ellipse(b[0],b[1],7+ph2*17,2.4+ph2*5,0,0,7); fctx.stroke();
   }
   fctx.fillStyle='rgba(240,200,120,.95)';
   for(const d of drops){ const p=project(M,[d.x,d.y,d.z]);
