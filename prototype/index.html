@@ -746,6 +746,8 @@ const PROF=[[0,0],[0.001,0.50],[0.06,0.52],[0.56,0.455],[1.12,0.395],[1.68,0.335
 const CORK=[[3.70,0.0],[3.701,0.146],[3.78,0.150],[3.81,0.110],
   [3.83,0.185],[3.88,0.185],[3.90,0.150],
   [3.95,0.215],[4.02,0.245],[4.10,0.240],[4.17,0.190],[4.22,0.120],[4.24,0]];
+/* the companion rocks glass from the bar shots */
+const TUMB=[[0,0],[0.001,0.255],[0.05,0.285],[0.50,0.30],[0.55,0.30]];
 const LIQ_LO=0.06, LIQ_HI=3.28, PIVOT=2.0, BOT_H=4.25;
 function radiusAt(y){
   for(let i=1;i<PROF.length;i++){
@@ -946,7 +948,7 @@ if(r>0.5) discard;
 float a=(1.0-smoothstep(0.28,0.5,r))*0.5;
 gl_FragColor=vec4(1.0,0.93,0.78,a);}`;
 
-let progLiq,progGlass,progCork,progPt,progBD, meshBody,meshCork, labelTex, ptBuf, bdBuf;
+let progLiq,progGlass,progCork,progPt,progBD, meshBody,meshCork,meshTumb, labelTex,blankTex, ptBuf, bdBuf;
 const MAXB=64; const bubbleData=new Float32Array(MAXB*4); const bubbles=[];
 
 function mkMesh(m){
@@ -1035,6 +1037,16 @@ function makeLabelTexture(){
      like a bottle-shop keepsake */
   const owner=(S&&S.settings&&S.settings.owner||'').trim();
   if(owner){
+    /* laurel crest above the name, like the engraved keepsakes */
+    x.save(); x.translate(512,ty(2.34));
+    x.fillStyle='rgba(240,200,120,.85)';
+    for(const sd of [-1,1]) for(let k=0;k<7;k++){
+      const a=0.35+k*0.34, R=26;
+      x.save(); x.translate(sd*Math.sin(a)*R,-Math.cos(a)*R); x.rotate(sd*(a+0.45));
+      x.beginPath(); x.ellipse(0,0,7,2.6,0,0,7); x.fill(); x.restore();
+    }
+    agave(0,7,10);
+    x.restore();
     x.font='400 24px Marcellus,serif'; x.fillStyle='rgba(250,236,205,.92)';
     x.shadowColor='rgba(28,13,4,.7)'; x.shadowBlur=5;
     x.fillText(owner.toUpperCase(),512,ty(2.06)); x.shadowBlur=0;
@@ -1073,8 +1085,12 @@ function initGL(){
   progBD=prog(BD_V,BD_F);
   bdBuf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bdBuf);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
-  meshBody=mkMesh(lathe(PROF,64,0.215,3.6));
+  meshBody=mkMesh(lathe(PROF,64));
   meshCork=mkMesh(lathe(CORK,48));
+  meshTumb=mkMesh(lathe(TUMB,40));
+  blankTex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,blankTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
   ptBuf=gl.createBuffer();
   makeLabelTexture();
   try{ if(document.fonts&&document.fonts.ready) document.fonts.ready.then(makeLabelTexture); }catch(e){}
@@ -1140,7 +1156,7 @@ function stepSim(dt,t){
   if(displayPct>4 && t-lastAmb>620 && !reduceMotion){ lastAmb=t;
     const by=LIQ_LO+Math.random()*Math.max(.05,levelY()-LIQ_LO-0.1);
     const r=radiusAt(by)*.7;
-    bubbles.push({x:(Math.random()-.5)*2*r,y:by,z:(Math.random()-.5)*1.2*r,vy:.22+Math.random()*.2,s:7+Math.random()*7});
+    bubbles.push({x:(Math.random()-.5)*2*r,y:by,z:(Math.random()-.5)*2*r,vy:.22+Math.random()*.2,s:7+Math.random()*7});
   }
   const lv=levelY();
   for(let i=bubbles.length-1;i>=0;i--){ const b=bubbles[i];
@@ -1205,9 +1221,31 @@ function drawGL(t){
   gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
   gl.depthMask(true);
 
+  /* companion rocks glass with a finger of gold, on stages with room */
+  if(cssW>260){
+    const MT=mMul(M,mTrans(0.88,0,0.45)), MVPT=mMul(P,mMul(V,MT));
+    gl.useProgram(progLiq); bindMesh(progLiq,meshTumb);
+    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVPT);
+    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,MT);
+    gl.uniform1f(gl.getUniformLocation(progLiq,'uLevel'),0.22);
+    gl.uniform1f(gl.getUniformLocation(progLiq,'uMir'),0);
+    gl.drawElements(gl.TRIANGLES,meshTumb.n,gl.UNSIGNED_SHORT,0);
+    gl.useProgram(progGlass); bindMesh(progGlass,meshTumb);
+    gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uMVP'),false,MVPT);
+    gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uM'),false,MT);
+    gl.uniform3fv(gl.getUniformLocation(progGlass,'uCam'),CAM);
+    gl.uniform1f(gl.getUniformLocation(progGlass,'uMir'),0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,blankTex);
+    gl.uniform1i(gl.getUniformLocation(progGlass,'uTex'),0);
+    gl.depthMask(false);
+    gl.drawElements(gl.TRIANGLES,meshTumb.n,gl.UNSIGNED_SHORT,0);
+    gl.depthMask(true);
+  }
+
   gl.useProgram(progLiq); bindMesh(progLiq,meshBody);
   gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVP);
   gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,M);
+  gl.uniform1f(gl.getUniformLocation(progLiq,'uLevel'),lv);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uMir'),0);
   if(displayPct>0.2) gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
 
