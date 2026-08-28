@@ -88,10 +88,11 @@
   button.chip:hover{border-color:var(--gold);color:var(--ink)}
 
   main{padding:26px 0 30px}
-  .grid{display:grid;gap:26px;grid-template-columns:1fr}
+  .grid{display:flex;flex-direction:column;gap:26px}
+  .col1{display:contents}
   @media(min-width:1000px){
-    .grid{grid-template-columns:420px 1fr;align-items:start}
-    .bottle-panel{position:sticky;top:18px}
+    .grid{display:grid;grid-template-columns:420px 1fr;align-items:start}
+    .col1{display:flex;flex-direction:column;gap:26px;position:sticky;top:18px}
   }
   .panel{
     border:1px solid var(--edge);background:var(--card);border-radius:26px;
@@ -111,7 +112,7 @@
   /* ---------- 3D stage ---------- */
   .stage{position:relative;display:flex;justify-content:center;padding:10px 0 0}
   #stage{display:block;width:min(340px,78vw);height:auto;touch-action:none;position:relative;z-index:2}
-  #fx{position:absolute;inset:0;pointer-events:none;z-index:3}
+  #fx{position:absolute;left:0;top:0;pointer-events:none;z-index:3}
   .floor-shadow{
     position:absolute;left:50%;bottom:22px;width:210px;height:44px;transform:translateX(-50%);
     background:radial-gradient(ellipse at center,rgba(240,200,120,.22),transparent 66%);
@@ -272,6 +273,53 @@
   footer.app button{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);transition:color .2s}
   footer.app button:hover{color:var(--gold-bright)}
 
+  /* ---------- corked focus ---------- */
+  .focusbtn{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--gold-bright);background:transparent;border:1px solid rgba(212,160,68,.5);
+    border-radius:999px;padding:7px 13px;cursor:pointer;transition:border-color .2s,box-shadow .2s;margin-left:auto;
+  }
+  .focusbtn:hover{border-color:var(--gold-bright);box-shadow:0 0 16px rgba(240,200,120,.3)}
+  .nowline.focusing{background:rgba(212,160,68,.07)}
+  .nowline.focusing .cur{color:var(--gold-bright)}
+  .task.infocus{background:rgba(212,160,68,.08);box-shadow:inset 0 0 0 1px rgba(212,160,68,.35)}
+
+  /* ---------- phone layout: the bottle never leaves the screen ---------- */
+  @media(max-width:999px){
+    header.top{padding:14px 0 2px}
+    .brand h1{font-size:22px}
+    .brand .date{font-size:9px;margin-top:4px}
+    .chip{padding:6px 11px;font-size:9px}
+    .bottle-panel{
+      order:0;position:sticky;top:0;z-index:30;
+      margin:0 -22px;padding:4px 22px 12px;border:none;border-radius:0;box-shadow:none;
+      background:linear-gradient(180deg,rgba(9,5,2,.84),rgba(9,5,2,.88) 58%,rgba(9,5,2,.5) 84%,rgba(9,5,2,0));
+      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    }
+    .day-panel{order:1}
+    .cellar-panel{order:2}
+    #stage{width:min(178px,42vw);touch-action:pan-y}
+    .stage{padding:0}
+    .floor-shadow{bottom:8px;width:140px;height:26px}
+    .drag-hint{display:none}
+    .gauge{display:none}
+    .substats{display:none}
+    .readout{position:absolute;left:20px;bottom:12px;text-align:left;margin:0;padding:0;pointer-events:none;z-index:5}
+    .readout .pct{font-size:44px}
+    .readout .pct small{font-size:19px}
+    .readout .status{font-size:11px;margin-top:2px;max-width:40vw;min-height:0;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .tl-block i{display:none}
+    .nowline{padding:12px 16px;gap:10px}
+    .nowline .cur{font-size:16px}
+    .panel-head{padding:14px 16px}
+    .panel-head h2{font-size:17px}
+    .task{padding:10px 14px 10px 16px;gap:11px;margin:0 4px}
+    .task .title{font-size:14.5px}
+    .block-head{padding-left:16px;padding-right:16px}
+    .addbar{padding:14px 16px}
+  }
+
   @media (prefers-reduced-motion:reduce){
     .tl-now,.tl-block.live,.nowline.lastcall .count,.block.lastcall .cd,.drag-hint::before{animation:none}
   }
@@ -290,12 +338,13 @@
     <div class="date" id="dateLbl"></div>
   </div>
   <div class="top-spacer"></div>
-  <span class="chip" title="Consecutive days at or above the 80% goal, and your best run">STREAK <b id="streakLbl">0</b> · BEST <b id="bestLbl">0</b></span>
+  <span class="chip" title="Days at or above the 80% goal. Finish a bottle (100%) to earn a reserve cork — it quietly saves your streak on an off night.">STREAK <b id="streakLbl">0</b> · BEST <b id="bestLbl">0</b><span id="reserveLbl" hidden></span></span>
   <button class="chip" id="muteBtn" aria-label="Toggle sound">SOUND <b id="muteState">ON</b></button>
 </div></header>
 
 <main class="wrap"><div class="grid">
 
+  <div class="col1">
   <section class="panel bottle-panel rise d1" aria-label="Bottle">
     <div class="stage" id="stageWrap">
       <div class="floor-shadow" aria-hidden="true"></div>
@@ -315,13 +364,17 @@
       <span>Spilled <b id="stSpill">0</b></span>
       <span>Next deadline <b id="stLeft">—</b></span>
     </div>
+  </section>
+
+  <section class="panel cellar-panel rise d3" aria-label="Cellar">
     <div class="cellar">
       <h3>The Cellar — last 7 nights</h3>
       <div class="shelf" id="shelf"></div>
     </div>
   </section>
+  </div>
 
-  <section class="panel rise d2" aria-label="Today">
+  <section class="panel day-panel rise d2" aria-label="Today">
     <div class="panel-head">
       <h2>Today’s Service</h2>
       <button class="chip" id="blockToggle">+ Time block</button>
@@ -335,6 +388,7 @@
       <span class="lbl">Now pouring</span>
       <span class="cur" id="curBlockLbl">—</span>
       <span class="count" id="curCountLbl"></span>
+      <button class="focusbtn" id="focusBtn" hidden>◉ Cork a focus pour</button>
     </div>
 
     <div id="dayBody"></div>
@@ -384,9 +438,10 @@ const finePointer = matchMedia('(pointer: fine)').matches;
 const KEY='pourmeter.v1';
 const GOAL=80;
 let S=null;
-function defaults(){ return { version:1, dayKey:todayKey(), blocks:[], tasks:[], history:[], streak:{current:0,best:0}, settings:{muted:false} }; }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const p=JSON.parse(raw); if(p&&p.version===1) return p; } }catch(e){} return null; }
+function defaults(){ return { version:1, dayKey:todayKey(), blocks:[], tasks:[], history:[], streak:{current:0,best:0,reserve:0}, settings:{muted:false} }; }
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const p=JSON.parse(raw); if(p&&p.version===1){ if(p.streak&&p.streak.reserve==null) p.streak.reserve=0; return p; } } }catch(e){} return null; }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function buzz(p){ try{ if(!S.settings.muted&&navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 
 function share(){ const n=S.tasks.length; return n? 100/n : 0; }
 function pct(){ const n=S.tasks.length; if(!n) return 0; return S.tasks.filter(t=>t.done&&!t.spilled).length/n*100; }
@@ -403,7 +458,11 @@ function rollDayIfNeeded(){
   if(n){
     S.history.push({dayKey:S.dayKey, pct:donePct, full:donePct===100});
     if(S.history.length>30) S.history=S.history.slice(-30);
-    if(donePct>=GOAL){ S.streak.current++; S.streak.best=Math.max(S.streak.best,S.streak.current); }
+    if(donePct>=GOAL){
+      S.streak.current++; S.streak.best=Math.max(S.streak.best,S.streak.current);
+      if(donePct===100) S.streak.reserve=Math.min(2,(S.streak.reserve||0)+1);
+    }
+    else if(S.streak.current>0&&(S.streak.reserve||0)>0){ S.streak.reserve--; S.corkSaved=true; }
     else S.streak.current=0;
   }
   S.tasks = S.tasks.filter(t=>t.recurring).map(t=>({...t, done:false, spilled:false, doneAt:null}));
@@ -678,7 +737,7 @@ function mRotX(a){ const c=Math.cos(a),s=Math.sin(a);
 function mTrans(x,y,z){ const o=mIdent(); o[12]=x;o[13]=y;o[14]=z; return o; }
 
 /* ---- bottle profile: slender 1942 cone ---- */
-const PROF=[[0,0],[0.001,0.62],[0.04,0.66],[0.30,0.64],[2.30,0.34],[2.55,0.22],[2.78,0.155],[3.05,0.135],[3.55,0.128],[3.64,0.142],[3.72,0.142]];
+const PROF=[[0,0],[0.001,0.585],[0.05,0.62],[0.34,0.60],[2.42,0.295],[2.66,0.185],[2.90,0.142],[3.10,0.130],[3.56,0.125],[3.64,0.139],[3.72,0.139]];
 const CORK=[[3.70,0.0],[3.701,0.16],[3.95,0.175],[4.08,0.16],[4.18,0.10],[4.22,0]];
 const LIQ_LO=0.06, LIQ_HI=3.20, PIVOT=2.0, BOT_H=4.25;
 function radiusAt(y){
@@ -760,8 +819,8 @@ void main(){
  vec3 N=normalize(gl_FrontFacing?vN:-vN);
  vec3 V=normalize(uCam-vW);
  float depth=clamp(uLevel-vW.y,0.0,3.2);
- vec3 col=vec3(1.0,0.74,0.33)*exp(-vec3(.50,1.15,2.60)*depth*.85);
- col=max(col,vec3(.11,.040,.010));
+ vec3 col=vec3(1.0,0.76,0.35)*exp(-vec3(.50,1.15,2.60)*depth*.62);
+ col=max(col,vec3(.13,.050,.014));
  float men=smoothstep(0.16,0.0,-h);
  col+=men*vec3(0.34,0.22,0.09);
  float stripe=0.5+0.5*sin(6.0*vW.x+3.0*vW.z+uT*0.7);
@@ -791,8 +850,8 @@ void main(){
  vec3 trans=refr*exp(-vec3(.30,.55,1.05)*thick);
  float cc=pow(max(dot(N,normalize(normalize(vec3(-.45,.55,.65))+V)),0.0),240.0)*2.2
          +pow(max(dot(N,normalize(normalize(vec3(.70,.25,-.60))+V)),0.0),120.0)*.9;
- vec3 col=trans*.55+refl*fr*1.35+vec3(1.0,.96,.88)*cc;
- float a=.08+fr*.55+min(cc,1.0)*.85;
+ vec3 col=trans*.65+refl*fr*1.35+vec3(1.0,.96,.88)*cc;
+ float a=.055+fr*.50+min(cc,1.0)*.85;
  vec4 tex=texture2D(uTex,vT);
  col=mix(col,tex.rgb,tex.a);
  a=max(a,tex.a*0.94);
@@ -864,17 +923,23 @@ function makeLabelTexture(){
   x.beginPath(); x.moveTo(512,my+62); x.lineTo(494,my+44); x.lineTo(530,my+44); x.closePath();
   x.fillStyle='rgba(232,185,92,.85)'; x.fill();
   x.restore();
+  /* the signature move: "1942" engraved vertically down the front of the cone */
+  x.save(); x.translate(512,ty(2.30)); x.rotate(Math.PI/2); x.scale(1,2.1);
+  x.font='400 108px Marcellus,serif'; x.textAlign='left'; x.textBaseline='middle';
+  x.fillStyle='rgba(255,248,235,.96)';
+  x.shadowColor='rgba(28,13,4,.8)'; x.shadowBlur=12;
+  let vx=0;
+  for(const ch of '1942'){ x.fillText(ch,vx,0); vx+=x.measureText(ch).width+30; }
+  x.shadowBlur=0;
+  x.font='500 21px "IBM Plex Mono",monospace';
+  x.fillStyle='rgba(240,200,120,.9)';
+  x.fillText('T E Q U I L A',8,74);
+  x.restore();
   x.save(); x.translate(512,0); x.scale(1.35,1); x.translate(-512,0);
-  x.font='500 18px "IBM Plex Mono",monospace'; x.textAlign='center';
-  x.fillStyle='rgba(255,246,228,.85)'; x.fillText('1 9 4 2',512,ty(1.36));
-  x.font='400 88px Marcellus,serif';
-  x.fillStyle='rgba(255,248,235,.97)';
-  x.shadowColor='rgba(30,14,4,.7)'; x.shadowBlur=10;
-  x.fillText('1942',512,ty(1.02)); x.shadowBlur=0;
-  x.font='500 16px "IBM Plex Mono",monospace';
+  x.font='500 16px "IBM Plex Mono",monospace'; x.textAlign='center';
   x.fillStyle='rgba(255,240,214,.9)';
-  x.fillText('TEQUILA · AÑEJO',512,ty(0.84));
-  x.fillText('POUR METER · 70 CL · ALC. 100% EFFORT',512,ty(0.70));
+  x.fillText('AÑEJO · POUR METER',512,ty(0.72));
+  x.fillText('70 CL · ALC. 100% EFFORT',512,ty(0.58));
   x.restore();
   const t=gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D,t);
@@ -896,6 +961,7 @@ function sizeStage(){
   stage.style.height=cssH+'px';
   fx.width=stage.width; fx.height=stage.height;
   fx.style.width=cssW+'px'; fx.style.height=cssH+'px';
+  fx.style.left=stage.offsetLeft+'px'; fx.style.top=stage.offsetTop+'px';
   if(GL_OK){ gl.viewport(0,0,stage.width,stage.height);
     P=mPersp(34*Math.PI/180,cssW/cssH,0.5,40); }
 }
@@ -1211,13 +1277,48 @@ function completeTask(id,rowEl,fromHold){
   else{
     if(fromHold){ setTimeout(sfxClink,320); }
     else{ sfxCork(); setTimeout(sfxPour,120); setTimeout(sfxClink,560); }
-    burst(false);
+    burst(false); buzz(35);
     toast(pick(LINES.pour));
-    if(pct()>=100){ setTimeout(()=>{ sfxFanfare(); burst(true); toast(pick(LINES.full),false,'The House'); },700); }
+    if(pct()>=100){ setTimeout(()=>{ sfxFanfare(); burst(true); buzz([40,60,40,60,140]); toast(pick(LINES.full),false,'The House'); },700); }
   }
   renderAll();
 }
 function deleteTask(id){ S.tasks=S.tasks.filter(t=>t.id!==id); save(); renderAll(); }
+
+/* ---- corked focus: commit 25 minutes to one task; leave the tab and the
+   cork pops — presence is the price of the pour (the Forest/Opal mechanic) */
+const FOCUS_MIN=25;
+function focusTask(){ return S.focus? (S.tasks.find(t=>t.id===S.focus.taskId&&!t.done&&!t.spilled)||null) : null; }
+function startFocus(){
+  const live=sortedBlocks().find(blockLive);
+  let t = live? S.tasks.find(x=>x.blockId===live.id&&!x.done&&!x.spilled) : null;
+  if(!t) t=S.tasks.find(x=>!x.done&&!x.spilled);
+  if(!t){ toast('Nothing open to cork, darling.',true); return; }
+  S.focus={taskId:t.id,end:Date.now()+FOCUS_MIN*60*1000}; save();
+  sfxCork(); buzz(20);
+  toast('Corked: “'+t.title+'”. '+FOCUS_MIN+' minutes — stay at the table or the cork pops.',false,'The House');
+  renderAll();
+}
+function endFocus(silent){ if(S.focus){ delete S.focus; save(); if(!silent) renderAll(); } }
+function focusTick(){
+  if(!S.focus) return;
+  const t=focusTask();
+  if(!t){ endFocus(true); return; }
+  if(Date.now()>=S.focus.end){
+    endFocus(true);
+    completeTask(t.id, document.querySelector('.task.infocus'));
+    buzz([30,40,60]);
+    setTimeout(()=>toast(FOCUS_MIN+' unbroken minutes. Poured with honors.',false,'The House'),400);
+  }
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&S&&S.focus){ endFocus(true); S.focusPopped=true; save(); }
+  else if(!document.hidden&&S&&S.focusPopped){
+    delete S.focusPopped; save();
+    sfxGlug(3); buzz([70,50,70]); renderAll();
+    toast('You left the table. The cork popped — that pour is void.',true);
+  }
+});
 
 function spillSweep(silent){
   const m=minsNow(); let hit=[];
@@ -1228,6 +1329,7 @@ function spillSweep(silent){
   }
   if(hit.length){
     save();
+    buzz([70,50,70]);
     if(silent){ sfxGlug(3); toast('While you were away, the angels took '+hit.length+' pour'+(hit.length>1?'s':'')+'.',true,'The Angels'); }
     else{ sfxGlug(4+Math.min(3,hit.length)); toast(pick(LINES.spill),true); }
     renderAll();
@@ -1242,7 +1344,7 @@ function lastCallSweep(){
     const left=toMins(b.end)-m;
     if(open>0 && left>0 && left<=15 && !warned.has(S.dayKey+b.id)){
       warned.add(S.dayKey+b.id);
-      sfxClink();
+      sfxClink(); buzz([15,30,15]);
       toast(pick(LINES.lastcall).replace('{b}',b.label).replace('{n}',open+' task'+(open>1?'s':'')),true,'Last Call');
     }
   }
@@ -1289,6 +1391,8 @@ function renderShelf(){
   }
   $('streakLbl').textContent=S.streak.current;
   $('bestLbl').textContent=S.streak.best;
+  const rsv=S.streak.reserve||0, rl=$('reserveLbl');
+  rl.hidden=!rsv; rl.textContent=' · RESERVE '+rsv;
 }
 function renderTimeline(){
   const track=$('tlTrack'); track.innerHTML='';
@@ -1313,7 +1417,19 @@ function cdText(mins){
 }
 function renderNowline(){
   const m=minsNow(); const live=sortedBlocks().find(blockLive);
-  const nl=$('nowline');
+  const nl=$('nowline'), fb=$('focusBtn');
+  const ft=focusTask();
+  if(ft){
+    nl.classList.add('focusing'); nl.classList.remove('lastcall');
+    const left=Math.max(0,S.focus.end-Date.now());
+    $('curBlockLbl').textContent='Corked — '+ft.title;
+    $('curCountLbl').textContent=Math.floor(left/60000)+':'+pad(Math.floor(left/1000)%60)+' on the clock';
+    fb.hidden=false; fb.textContent='Pop the cork (give up)';
+    return;
+  }
+  nl.classList.remove('focusing');
+  fb.hidden=!S.tasks.some(t=>!t.done&&!t.spilled);
+  fb.textContent='◉ Cork a focus pour';
   if(live){
     const left=toMins(live.end)-m;
     $('curBlockLbl').textContent=live.label;
@@ -1328,7 +1444,7 @@ function renderNowline(){
 }
 function taskRow(t){
   const li=document.createElement('li');
-  li.className='task'+(t.done?' done':'')+(t.spilled?' spilled':'');
+  li.className='task'+(t.done?' done':'')+(t.spilled?' spilled':'')+(S.focus&&S.focus.taskId===t.id?' infocus':'');
   li.innerHTML=
     '<button class="tick" data-act="tick" data-id="'+t.id+'" aria-label="Hold to pour this task in" title="'+(t.done||t.spilled?'':'Hold to pour')+'">✓</button>'+
     '<span class="title">'+esc(t.title)+'</span>'+
@@ -1399,7 +1515,7 @@ document.addEventListener('pointerdown',e=>{
   try{ tick.setPointerCapture(e.pointerId); }catch(_){}
   hold={id:t.id,tick,row:tick.closest('.task'),t0:performance.now(),pid:e.pointerId};
   hold.row.classList.add('holding');
-  holdPour=true; waveAmp=Math.max(waveAmp,.05);
+  holdPour=true; waveAmp=Math.max(waveAmp,.05); buzz(15);
   audio(); sfxCork(); setTimeout(()=>{ if(holdPour) sfxPour(); },130);
   lastHoldSfx=performance.now()+130;
 });
@@ -1461,6 +1577,10 @@ $('bAddBtn').addEventListener('click',()=>{
   S.blocks.push({id:uid(),label,start:s,end:en});
   save(); $('bLabel').value=''; renderAll();
 });
+$('focusBtn').addEventListener('click',()=>{
+  if(S.focus){ endFocus(); sfxGlug(2); toast('Cork popped. No harm done — this time.',true); }
+  else startFocus();
+});
 $('muteBtn').addEventListener('click',()=>{
   S.settings.muted=!S.settings.muted; save();
   $('muteState').textContent=S.settings.muted?'OFF':'ON';
@@ -1505,6 +1625,10 @@ if(intro){
 /* ================= boot ================= */
 S = load()||defaults();
 rollDayIfNeeded();
+if(S.focus){ delete S.focus; save(); }          /* a closed page is a left table */
+if(S.focusPopped){ delete S.focusPopped; save(); }
+if(S.corkSaved){ delete S.corkSaved; save();
+  setTimeout(()=>toast('Last night fell short — but a reserve cork held your streak.',false,'The Cellar'),1800); }
 $('dateLbl').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
 $('muteState').textContent=S.settings.muted?'OFF':'ON';
 displayPct=pct(); targetPct=displayPct;
@@ -1520,6 +1644,7 @@ setInterval(()=>{
   rollDayIfNeeded();
   spillSweep(false);
   lastCallSweep();
+  focusTick();
   renderNowline(); renderTimeline(); renderBottle();
 },1000);
 
