@@ -864,7 +864,7 @@ void main(){
  vec3 c=mix(vec3(.045,.020,.008),vec3(.40,.19,.052),fold*fold2*(0.16+spot));
  c+=vec3(1.0,.62,.22)*spot*spot*.50;
  float fl=smoothstep(-0.46,-0.60,p.y);
- c=mix(c,vec3(.050,.022,.009)+vec3(.50,.24,.08)*spot*.30,fl);
+ c=mix(c,vec3(.14,.095,.062)+vec3(.55,.32,.14)*spot*.45,fl);
  float a=smoothstep(1.05,0.45,length(vec2(p.x*.80,p.y*.92)));
  gl_FragColor=vec4(c,a*.92);
 }`;
@@ -1102,6 +1102,7 @@ function initGL(){
 
 /* ---- orbit + liquid dynamics ---- */
 let yaw=0.35, yawVel=0, pitch=0, pitchT=0;
+let swirl=0, swX=0, swZ=0;   /* idle swirl: the liquid keeps living, per the reference video */
 let tiltX=0,tiltZ=0,tiltVX=0,tiltVZ=0, waveAmp=0;
 let displayPct=0, targetPct=0, demoDip=0;
 let pouring=false, corkY=0, corkVY=0, corkOpen=false, holdPour=false;
@@ -1146,7 +1147,11 @@ function stepSim(dt,t){
   tiltX+=tiltVX*dt*8; tiltZ+=tiltVZ*dt*8;
   tiltX=clamp(tiltX,-.4,.4); tiltZ=clamp(tiltZ,-.4,.4);
 
+  const wantSwirl=(!dragging&&!reduceMotion&&t-lastInteract>3500&&displayPct>2)?0.045:0;
+  swirl+=(wantSwirl-swirl)*.01;
+  swX=Math.cos(t/1300)*swirl; swZ=Math.sin(t/1300)*swirl;
   waveAmp*=.965;
+  if(swirl>0.02) waveAmp=Math.max(waveAmp,.014);
   if(pouring||holdPour) waveAmp=Math.max(waveAmp,.06);
   if(draining){ waveAmp=Math.max(waveAmp,.07);
     if(t-lastGlug>260 && displayPct>1){ lastGlug=t;
@@ -1197,8 +1202,8 @@ function drawGL(t){
   const M2=mMul(SM,M), MVP2=mMul(P,mMul(V,M2));
   gl.useProgram(progLiq); bindMesh(progLiq,meshBody);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uLevel'),lv);
-  gl.uniform1f(gl.getUniformLocation(progLiq,'uTX'),tiltX);
-  gl.uniform1f(gl.getUniformLocation(progLiq,'uTZ'),tiltZ);
+  gl.uniform1f(gl.getUniformLocation(progLiq,'uTX'),tiltX+swX);
+  gl.uniform1f(gl.getUniformLocation(progLiq,'uTZ'),tiltZ+swZ);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uAmp'),waveAmp);
   gl.uniform1f(gl.getUniformLocation(progLiq,'uT'),t/1000);
   gl.uniform3fv(gl.getUniformLocation(progLiq,'uCam'),CAM);
