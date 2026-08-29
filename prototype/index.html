@@ -1240,27 +1240,6 @@ function drawGL(t){
   gl.drawElements(gl.TRIANGLES,meshBody.n,gl.UNSIGNED_SHORT,0);
   gl.depthMask(true);
 
-  /* companion rocks glass with a finger of gold, on stages with room */
-  if(cssW>260){
-    const MT=mMul(M,mTrans(0.88,0,0.45)), MVPT=mMul(P,mMul(V,MT));
-    gl.useProgram(progLiq); bindMesh(progLiq,meshTumb);
-    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVPT);
-    gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,MT);
-    gl.uniform1f(gl.getUniformLocation(progLiq,'uLevel'),0.22);
-    gl.uniform1f(gl.getUniformLocation(progLiq,'uMir'),0);
-    gl.drawElements(gl.TRIANGLES,meshTumb.n,gl.UNSIGNED_SHORT,0);
-    gl.useProgram(progGlass); bindMesh(progGlass,meshTumb);
-    gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uMVP'),false,MVPT);
-    gl.uniformMatrix4fv(gl.getUniformLocation(progGlass,'uM'),false,MT);
-    gl.uniform3fv(gl.getUniformLocation(progGlass,'uCam'),CAM);
-    gl.uniform1f(gl.getUniformLocation(progGlass,'uMir'),0);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,blankTex);
-    gl.uniform1i(gl.getUniformLocation(progGlass,'uTex'),0);
-    gl.depthMask(false);
-    gl.drawElements(gl.TRIANGLES,meshTumb.n,gl.UNSIGNED_SHORT,0);
-    gl.depthMask(true);
-  }
-
   gl.useProgram(progLiq); bindMesh(progLiq,meshBody);
   gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uMVP'),false,MVP);
   gl.uniformMatrix4fv(gl.getUniformLocation(progLiq,'uM'),false,M);
@@ -1384,20 +1363,31 @@ function initT3(){
     const bodyGeo=new THREE.LatheGeometry(lathePts(PROF),96);
     const scaleGeo=(g,s)=>{ const gg=g.clone(); gg.scale(s,1,s); return gg; };
     const glass=new THREE.MeshPhysicalMaterial({
-      color:0xffffff,metalness:0,roughness:.055,
-      transmission:1,ior:1.5,thickness:1.0,
-      attenuationColor:new THREE.Color(0xa85e14),attenuationDistance:2.0,
-      clearcoat:1,clearcoatRoughness:.06,
-      specularIntensity:1,envMapIntensity:1.25,side:THREE.DoubleSide});
+      color:0xffffff,metalness:0,roughness:.03,
+      transmission:1,ior:1.5,thickness:.8,
+      attenuationColor:new THREE.Color(0xb4702a),attenuationDistance:2.8,
+      clearcoat:1,clearcoatRoughness:.05,
+      specularIntensity:1.2,envMapIntensity:1.35,side:THREE.DoubleSide});
     const bottle=new THREE.Mesh(bodyGeo,glass); bottle.renderOrder=3; inner.add(bottle);
     /* liquid: transparent (not transmissive) so the glass sees it */
     const liqPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),0);
     /* opaque: Three's transmission buffer only sees opaque objects, and
-       the liquid must be visible through the glass */
+       the liquid must be visible through the glass. A vertical gradient
+       map gives it the reference video's depth — deep brown at the base,
+       backlit honey near the surface. */
+    const lgC=document.createElement('canvas'); lgC.width=4; lgC.height=256;
+    const lgX=lgC.getContext('2d');
+    const lg=lgX.createLinearGradient(0,256,0,0);
+    lg.addColorStop(0,'#431d05'); lg.addColorStop(.45,'#8a4410');
+    lg.addColorStop(.8,'#d8811c'); lg.addColorStop(1,'#f7a93e');
+    lgX.fillStyle=lg; lgX.fillRect(0,0,4,256);
+    const liqTex=new THREE.CanvasTexture(lgC);
+    if('colorSpace' in liqTex) liqTex.colorSpace=THREE.SRGBColorSpace;
     const liqMat=new THREE.MeshPhysicalMaterial({
-      color:0xd97f1c,roughness:.15,metalness:0,
-      emissive:0x6d3208,emissiveIntensity:.85,envMapIntensity:.8,
-      clearcoat:.4,side:THREE.DoubleSide,clippingPlanes:[liqPlane]});
+      map:liqTex,color:0xffffff,roughness:.09,metalness:0,
+      emissive:0x5a2a08,emissiveIntensity:.7,envMapIntensity:.7,
+      clearcoat:.6,clearcoatRoughness:.15,
+      side:THREE.DoubleSide,clippingPlanes:[liqPlane]});
     const liquid=new THREE.Mesh(scaleGeo(bodyGeo,.965),liqMat);
     liquid.renderOrder=1; inner.add(liquid);
     /* label shell */
@@ -1414,18 +1404,6 @@ function initT3(){
       new THREE.MeshPhysicalMaterial({color:0x24100a,roughness:.3,metalness:.05,
         clearcoat:.55,clearcoatRoughness:.22,envMapIntensity:.9}));
     inner.add(cork);
-    /* the companion rocks glass */
-    const tumbG=new THREE.Group(); tumbG.position.set(0.88,0,0.45); inner.add(tumbG);
-    const tumbGeo=new THREE.LatheGeometry(lathePts(TUMB),40);
-    const tumbPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),0.22);
-    tumbG.add(new THREE.Mesh(tumbGeo,new THREE.MeshPhysicalMaterial({
-      color:0xffffff,roughness:.06,transmission:1,ior:1.5,thickness:.5,
-      attenuationColor:new THREE.Color(0xa86a20),attenuationDistance:2.5,
-      clearcoat:1,clearcoatRoughness:.08,envMapIntensity:1.1,side:THREE.DoubleSide})));
-    const tumbLiq=new THREE.Mesh(new THREE.LatheGeometry(lathePts(TUMB),40).scale(.94,1,.94),
-      liqMat.clone());
-    tumbLiq.material.clippingPlanes=[tumbPlane];
-    tumbG.add(tumbLiq);
     /* glowing surface disc, world-space so it stays level */
     const surf=new THREE.Mesh(new THREE.CircleGeometry(1,48),
       new THREE.MeshStandardMaterial({color:0x351805,emissive:0xffc27a,
@@ -1437,7 +1415,7 @@ function initT3(){
     const bubs=new THREE.Points(bubGeo,new THREE.PointsMaterial({color:0xffe2aa,
       size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
     bubs.renderOrder=5; inner.add(bubs);
-    T3={renderer,scene,camera,tiltG,inner,liqPlane,tumbPlane,tumbG,surf,cork,bubs,bd,labelTexT,glass};
+    T3={renderer,scene,camera,tiltG,inner,liqPlane,surf,cork,bubs,bd,labelTexT,glass};
     return true;
   }catch(e){ console.error('T3 init failed',e); T3=null; return false; }
 }
@@ -1446,7 +1424,7 @@ function projT3(p){
   return [(v.x*.5+.5)*cssW,(1-(v.y*.5+.5))*cssH,1];
 }
 function drawT3(t){
-  const {renderer,scene,camera,tiltG,inner,liqPlane,surf,cork,bubs,bd,tumbG}=T3;
+  const {renderer,scene,camera,tiltG,inner,liqPlane,surf,cork,bubs,bd}=T3;
   inner.rotation.y=yaw;
   tiltG.rotation.x=pitch*0.7;
   bd.material.uniforms.uT.value=t/1000;
@@ -1462,7 +1440,6 @@ function drawT3(t){
     surf.material.opacity=.34+waveAmp*3.2;
   }
   cork.position.y=corkY;
-  tumbG.visible=cssW>260;
   const pos=bubs.geometry.attributes.position;
   for(let i=0;i<MAXB;i++){
     if(i<bubbles.length){ const u=bubbles[i]; pos.setXYZ(i,u.x,u.y,u.z); }
