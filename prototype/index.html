@@ -992,7 +992,7 @@ function makeLabelCanvas(){
   const x=c.getContext('2d');
   const ty=y=>(1-y/BOT_H)*1024;
   x.clearRect(0,0,1024,1024);
-  const GOLD='rgba(232,185,92,.96)', CREAM='rgba(250,236,205,.95)';
+  const GOLD='rgba(222,174,86,.88)', CREAM='rgba(236,209,158,.92)';
   const agave=(cx,cy,s)=>{           /* original mark: a fanned agave */
     x.save(); x.translate(cx,cy); x.strokeStyle=GOLD; x.lineWidth=s*.14; x.lineCap='round';
     for(let i=-3;i<=3;i++){ const a=i*0.42;
@@ -1037,11 +1037,9 @@ function makeLabelCanvas(){
   agave(512,ty(1.30)-8,16);
   x.save(); x.translate(512,0); x.scale(1.5,1); x.translate(-512,0);
   x.textAlign='center';
-  x.font='400 62px "Pinyon Script",cursive'; x.fillStyle=CREAM;
-  x.shadowColor='rgba(28,13,4,.7)'; x.shadowBlur=8;
-  x.fillText('Pour Meter',512,ty(1.06));
-  x.font='400 74px Marcellus,serif';
-  x.fillText('1942',512,ty(0.80)); x.shadowBlur=0;
+  x.font='400 86px Marcellus,serif'; x.fillStyle=CREAM;
+  x.shadowColor='rgba(28,13,4,.6)'; x.shadowBlur=6;
+  x.fillText('1942',512,ty(0.92)); x.shadowBlur=0;
   x.font='italic 400 16px Marcellus,serif'; x.fillStyle='rgba(240,206,140,.9)';
   x.fillText('fundada en 1942 ~ 100% de effort',512,ty(0.64));
   x.font='500 13px "IBM Plex Mono",monospace'; x.fillStyle='rgba(255,240,214,.88)';
@@ -1317,7 +1315,7 @@ function initT3(){
     const renderer=new THREE.WebGLRenderer({canvas:stage,alpha:true,antialias:true});
     renderer.setPixelRatio(Math.min(dpr,cssW<420?1.5:2)); renderer.setSize(cssW,cssH,false);
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.4;
+    renderer.toneMappingExposure=1.22;
     if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.localClippingEnabled=true;
     const scene=new THREE.Scene();
@@ -1363,9 +1361,9 @@ function initT3(){
     const bodyGeo=new THREE.LatheGeometry(lathePts(PROF),96);
     const scaleGeo=(g,s)=>{ const gg=g.clone(); gg.scale(s,1,s); return gg; };
     const glass=new THREE.MeshPhysicalMaterial({
-      color:0xffffff,metalness:0,roughness:.03,
-      transmission:1,ior:1.5,thickness:.8,
-      attenuationColor:new THREE.Color(0xb4702a),attenuationDistance:2.8,
+      color:0xffffff,metalness:0,roughness:.055,
+      transmission:1,ior:1.5,thickness:1.0,
+      attenuationColor:new THREE.Color(0x8a4a12),attenuationDistance:1.6,
       clearcoat:1,clearcoatRoughness:.05,
       specularIntensity:1.2,envMapIntensity:1.35,side:THREE.DoubleSide});
     const bottle=new THREE.Mesh(bodyGeo,glass); bottle.renderOrder=3; inner.add(bottle);
@@ -1378,14 +1376,14 @@ function initT3(){
     const lgC=document.createElement('canvas'); lgC.width=4; lgC.height=256;
     const lgX=lgC.getContext('2d');
     const lg=lgX.createLinearGradient(0,256,0,0);
-    lg.addColorStop(0,'#431d05'); lg.addColorStop(.45,'#8a4410');
-    lg.addColorStop(.8,'#d8811c'); lg.addColorStop(1,'#f7a93e');
+    lg.addColorStop(0,'#2f1403'); lg.addColorStop(.45,'#6e350c');
+    lg.addColorStop(.8,'#9c5210'); lg.addColorStop(1,'#c9761a');
     lgX.fillStyle=lg; lgX.fillRect(0,0,4,256);
     const liqTex=new THREE.CanvasTexture(lgC);
     if('colorSpace' in liqTex) liqTex.colorSpace=THREE.SRGBColorSpace;
     const liqMat=new THREE.MeshPhysicalMaterial({
       map:liqTex,color:0xffffff,roughness:.09,metalness:0,
-      emissive:0x5a2a08,emissiveIntensity:.7,envMapIntensity:.7,
+      emissive:0x4a2206,emissiveIntensity:.45,envMapIntensity:.6,
       clearcoat:.6,clearcoatRoughness:.15,
       side:THREE.DoubleSide,clippingPlanes:[liqPlane]});
     const liquid=new THREE.Mesh(scaleGeo(bodyGeo,.965),liqMat);
@@ -1406,14 +1404,14 @@ function initT3(){
     inner.add(cork);
     /* glowing surface disc, world-space so it stays level */
     const surf=new THREE.Mesh(new THREE.CircleGeometry(1,48),
-      new THREE.MeshStandardMaterial({color:0x351805,emissive:0xffc27a,
-        emissiveIntensity:1.5,roughness:.3,side:THREE.DoubleSide}));
+      new THREE.MeshStandardMaterial({color:0x351805,emissive:0xf0b06a,
+        emissiveIntensity:.95,roughness:.3,side:THREE.DoubleSide}));
     surf.rotation.x=-Math.PI/2; surf.renderOrder=4; scene.add(surf);
     /* bubbles */
     const bubGeo=new THREE.BufferGeometry();
     bubGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(MAXB*3),3));
     const bubs=new THREE.Points(bubGeo,new THREE.PointsMaterial({color:0xffe2aa,
-      size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+      size:.026,transparent:true,opacity:.35,blending:THREE.AdditiveBlending,depthWrite:false}));
     bubs.renderOrder=5; inner.add(bubs);
     T3={renderer,scene,camera,tiltG,inner,liqPlane,surf,cork,bubs,bd,labelTexT,glass};
     return true;
