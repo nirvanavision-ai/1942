@@ -90,9 +90,20 @@
   main{padding:26px 0 30px}
   .grid{display:flex;flex-direction:column;gap:26px}
   .col1{display:contents}
+  /* desktop: the bottle is the centerpiece — Cellar left, tasks right,
+     the glass big and frameless in the middle of the screen */
   @media(min-width:1000px){
-    .grid{display:grid;grid-template-columns:420px 1fr;align-items:start}
-    .col1{display:flex;flex-direction:column;gap:26px;position:sticky;top:18px}
+    .grid{display:grid;grid-template-columns:minmax(210px,290px) minmax(380px,1fr) minmax(400px,450px);
+      grid-template-areas:"cellar bottle day";align-items:start;gap:26px}
+    .panel.bottle-panel{grid-area:bottle;position:sticky;top:6px;
+      border:none;background:transparent;box-shadow:none;backdrop-filter:none;overflow:visible}
+    .cellar-panel{grid-area:cellar;position:sticky;top:18px}
+    .day-panel{grid-area:day}
+    .stage #stage{width:min(440px,38vw)}
+    .bottle-panel .substats{border-top-color:transparent;padding-top:4px;color:var(--ink-dim);
+      text-shadow:0 1px 8px rgba(0,0,0,.8)}
+    .bottle-panel .readout .pct{filter:drop-shadow(0 8px 26px rgba(212,160,68,.45)) drop-shadow(0 2px 8px rgba(0,0,0,.85))}
+    .bottle-panel .readout .status{color:var(--ink);text-shadow:0 1px 10px rgba(0,0,0,.85)}
   }
   .panel{
     border:1px solid var(--edge);background:var(--card);border-radius:26px;
@@ -1340,12 +1351,20 @@ function initT3(){
           'c+=vec3(1.0,.62,.22)*spot*spot*.50;'+
           'float fl=smoothstep(-0.46,-0.60,p.y);'+
           'c=mix(c,vec3(.14,.095,.062)+vec3(.55,.32,.14)*spot*.45,fl);'+
-          'float a=smoothstep(1.05,0.45,length(vec2(p.x*.80,p.y*.92)));'+
+          'float a=smoothstep(1.0,0.40,length(vec2(p.x*1.15,p.y*0.85)));'+
+          'a*=smoothstep(-1.0,-0.70,p.y);'+
           'gl_FragColor=vec4(c,a*.92);}'}));
     bd.position.set(0,2.0,-4); bd.renderOrder=-10; scene.add(bd);
     /* glossy dark floor */
-    const floor=new THREE.Mesh(new THREE.CircleGeometry(9,48),
-      new THREE.MeshPhysicalMaterial({color:0x0e0703,roughness:.18,metalness:.6,envMapIntensity:1.2}));
+    /* glossy dark puddle that fades before the canvas edge */
+    const fA=document.createElement('canvas'); fA.width=fA.height=256;
+    const fx2=fA.getContext('2d');
+    const fg=fx2.createRadialGradient(128,128,8,128,128,126);
+    fg.addColorStop(0,'#fff'); fg.addColorStop(.5,'#777'); fg.addColorStop(1,'#000');
+    fx2.fillStyle=fg; fx2.fillRect(0,0,256,256);
+    const floor=new THREE.Mesh(new THREE.CircleGeometry(4.2,48),
+      new THREE.MeshPhysicalMaterial({color:0x0e0703,roughness:.18,metalness:.6,envMapIntensity:1.2,
+        transparent:true,alphaMap:new THREE.CanvasTexture(fA),depthWrite:false}));
     floor.rotation.x=-Math.PI/2; floor.position.y=-0.005; scene.add(floor);
     /* studio lights: key, warm rim, soft fill */
     const key=new THREE.SpotLight(0xffe2ba,1.7,0,Math.PI/4.5,.85);
